@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ----------------------------------------------------------------------------------------
-# Copyright (c) 2011 Marcus Geelnard
+# Copyright (c) 2012 Marcus Geelnard
 #
 # This software is provided 'as-is', without any express or implied
 # warranty. In no event will the authors be held liable for any damages
@@ -46,8 +46,8 @@ mkdir $tmpdir/test
 mkdir $tmpdir/doc
 mkdir $tmpdir/doc/html
 cp *.txt $tmpdir/
-cp source/*.h source/*.cpp $tmpdir/source/
-cp test/Makefile* test/*.h test/*.cpp $tmpdir/test/
+cp source/*.h source/*.c $tmpdir/source/
+cp test/Makefile* test/*.h test/*.c $tmpdir/test/
 cp doc/Doxyfile $tmpdir/doc
 cp doc/html/* $tmpdir/doc/html
 
@@ -62,3 +62,4 @@ cp $tmproot/*.bz2 $tmproot/*.zip ./
 
 # Remove temporary directory
 rm -rf $tmproot
+
