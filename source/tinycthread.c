@@ -102,6 +102,8 @@ int mtx_lock(mtx_t *mtx)
 int mtx_timedlock(mtx_t *mtx, const xtime *xt)
 {
   /* FIXME! */
+  (void)mtx;
+  (void)xt;
   return thrd_error;
 }
 
@@ -401,6 +403,7 @@ thrd_t thrd_current(void)
 int thrd_detach(thrd_t thr)
 {
   /* FIXME! */
+  (void)thr;
   return thrd_error;
 }
 

@@ -253,7 +253,6 @@ int main(void)
     for (i = 0; i < 10; ++ i)
     {
       /* Calculate current time + 100ms */
-      xtime xt;
       xtime_get(&xt, TIME_UTC);
       xt.nsec += 100000000;
       if (xt.nsec >= 1000000000)
