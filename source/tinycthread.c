@@ -324,9 +324,9 @@ typedef struct {
 
 /* Thread wrapper function. */
 #if defined(_TTHREAD_WIN32_)
-unsigned WINAPI _thrd_wrapper_function(void * aArg)
+static unsigned WINAPI _thrd_wrapper_function(void * aArg)
 #elif defined(_TTHREAD_POSIX_)
-void * _thrd_wrapper_function(void * aArg)
+static void * _thrd_wrapper_function(void * aArg)
 #endif
 {
   thrd_start_t fun;
