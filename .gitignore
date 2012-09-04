@@ -1,0 +1,5 @@
+*~
+*.o
+doc/html/*
+test/hello
+test/test
