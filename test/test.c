@@ -246,23 +246,23 @@ int main(void)
   printf("PART VI: Sleep (10 x 100 ms)\n");
   {
     int i;
-    xtime xt;
+    struct timespec ts;
 
     printf(" Sleeping");
     fflush(stdout);
     for (i = 0; i < 10; ++ i)
     {
       /* Calculate current time + 100ms */
-      xtime_get(&xt, TIME_UTC);
-      xt.nsec += 100000000;
-      if (xt.nsec >= 1000000000)
+      clock_gettime(TIME_UTC, &ts);
+      ts.tv_nsec += 100000000;
+      if (ts.tv_nsec >= 1000000000)
       {
-        xt.sec++;
-        xt.nsec -= 1000000000;
+        ts.tv_sec++;
+        ts.tv_nsec -= 1000000000;
       }
 
       /* Sleep... */
-      thrd_sleep(&xt);
+      thrd_sleep(&ts, NULL);
 
       printf(".");
       fflush(stdout);
@@ -273,13 +273,13 @@ int main(void)
   /* Test 7: Time */
   printf("PART VII: Current time (UTC), three times\n");
   {
-    xtime xt;
-    xtime_get(&xt, TIME_UTC);
-    printf(" Time = %ld.%09ld\n", (long)xt.sec, xt.nsec);
-    xtime_get(&xt, TIME_UTC);
-    printf(" Time = %ld.%09ld\n", (long)xt.sec, xt.nsec);
-    xtime_get(&xt, TIME_UTC);
-    printf(" Time = %ld.%09ld\n", (long)xt.sec, xt.nsec);
+    struct timespec ts;
+    clock_gettime(TIME_UTC, &ts);
+    printf(" Time = %ld.%09ld\n", (long)ts.tv_sec, ts.tv_nsec);
+    clock_gettime(TIME_UTC, &ts);
+    printf(" Time = %ld.%09ld\n", (long)ts.tv_sec, ts.tv_nsec);
+    clock_gettime(TIME_UTC, &ts);
+    printf(" Time = %ld.%09ld\n", (long)ts.tv_sec, ts.tv_nsec);
   }
 
   /* FIXME: Implement some more tests for the TinyCThread API... */

@@ -21,13 +21,6 @@ freely, subject to the following restrictions:
     distribution.
 */
 
-/* Activate some POSIX functionality (e.g. recursive mutexes) */
-#define _GNU_SOURCE
-#if !defined(_XOPEN_SOURCE) || (_XOPEN_SOURCE < 500)
-  #undef _XOPEN_SOURCE
-  #define _XOPEN_SOURCE 500
-#endif
-
 #include "tinycthread.h"
 #include <stdlib.h>
 
@@ -99,11 +92,11 @@ int mtx_lock(mtx_t *mtx)
 #endif
 }
 
-int mtx_timedlock(mtx_t *mtx, const xtime *xt)
+int mtx_timedlock(mtx_t *mtx, const struct timespec *ts)
 {
   /* FIXME! */
   (void)mtx;
-  (void)xt;
+  (void)ts;
   return thrd_error;
 }
 
@@ -292,21 +285,21 @@ int cnd_wait(cnd_t *cond, mtx_t *mtx)
 #endif
 }
 
-int cnd_timedwait(cnd_t *cond, mtx_t *mtx, const xtime *xt)
+int cnd_timedwait(cnd_t *cond, mtx_t *mtx, const struct timespec *ts)
 {
 #if defined(_TTHREAD_WIN32_)
-  xtime now;
-  DWORD delta;
-  xtime_get(&now, TIME_UTC);
-  delta = (xt->sec - now.sec) * 1000 +
-          (xt->nsec - now.nsec + 500000) / 1000000;
-  return _cnd_timedwait_win32(cond, mtx, delta);
+  struct timespec now;
+  if (clock_gettime(TIME_UTC, &now) == 0)
+  {
+    DWORD delta = (ts->tv_sec - now.tv_sec) * 1000 +
+                  (ts->tv_nsec - now.tv_nsec + 500000) / 1000000;
+    return _cnd_timedwait_win32(cond, mtx, delta);
+  }
+  else
+    return thrd_error;
 #else
-  struct timespec ts;
   int ret;
-  ts.tv_sec = xt->sec;
-  ts.tv_nsec = xt->nsec;
-  ret = pthread_cond_timedwait(cond, mtx, &ts);
+  ret = pthread_cond_timedwait(cond, mtx, ts);
   if (ret == ETIMEDOUT)
   {
     return thrd_timeout;
@@ -463,9 +456,9 @@ int thrd_join(thrd_t thr, int *res)
   return thrd_success;
 }
 
-void thrd_sleep(const xtime *xt)
+int thrd_sleep(const struct timespec *time_point, struct timespec *remaining)
 {
-  xtime now;
+  struct timespec now;
 #if defined(_TTHREAD_WIN32_)
   DWORD delta;
 #else
@@ -473,20 +466,21 @@ void thrd_sleep(const xtime *xt)
 #endif
 
   /* Get the current time */
-  xtime_get(&now, TIME_UTC);
+  if (clock_gettime(TIME_UTC, &now) != 0)
+    return -2;  // FIXME: Some specific error code?
 
 #if defined(_TTHREAD_WIN32_)
   /* Delta in milliseconds */
-  delta = (xt->sec - now.sec) * 1000 +
-          (xt->nsec - now.nsec + 500000) / 1000000;
+  delta = (time_point->tv_sec - now.tv_sec) * 1000 +
+          (time_point->tv_nsec - now.tv_nsec + 500000) / 1000000;
   if (delta > 0)
   {
     Sleep(delta);
   }
 #else
   /* Delta in microseconds */
-  delta = (xt->sec - now.sec) * 1000000L +
-          (xt->nsec - now.nsec + 500L) / 1000L;
+  delta = (time_point->tv_sec - now.tv_sec) * 1000000L +
+          (time_point->tv_nsec - now.tv_nsec + 500L) / 1000L;
 
   /* On some systems, the usleep argument must be < 1000000 */
   while (delta > 999999L)
@@ -499,6 +493,14 @@ void thrd_sleep(const xtime *xt)
     usleep((useconds_t)delta);
   }
 #endif
+
+  /* We don't support waking up prematurely (yet) */
+  if (remaining)
+  {
+    remaining->tv_sec = 0;
+    remaining->tv_nsec = 0;
+  }
+  return 0;
 }
 
 void thrd_yield(void)
@@ -566,26 +568,21 @@ int tss_set(tss_t key, void *val)
   return thrd_success;
 }
 
-int xtime_get(xtime *xt, int base)
+#if defined(_TTHREAD_EMULATE_CLOCK_GETTIME_)
+int _tthread_clock_gettime(clockid_t clk_id, struct timespec *ts)
 {
-  if (base == TIME_UTC)
-  {
 #if defined(_TTHREAD_WIN32_)
-    struct _timeb tb;
-    _ftime(&tb);
-    xt->sec = (time_t)tb.time;
-    xt->nsec = 1000000 * (long)tb.millitm;
+  struct _timeb tb;
+  _ftime(&tb);
+  ts->tv_sec = (time_t)tb.time;
+  ts->tv_nsec = 1000000L * (long)tb.millitm;
 #else
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    xt->sec = (time_t)tv.tv_sec;
-    xt->nsec = 1000 * (long)tv.tv_usec;
+  struct timeval tv;
+  gettimeofday(&tv, NULL);
+  ts->tv_sec = (time_t)tv.tv_sec;
+  ts->tv_nsec = 1000L * (long)tv.tv_usec;
 #endif
-    return base;
-  }
-  else
-  {
-    return 0;
-  }
+  return 0;
 }
+#endif // _TTHREAD_EMULATE_CLOCK_GETTIME_
 

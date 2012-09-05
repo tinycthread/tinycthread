@@ -31,12 +31,13 @@ endif
 # Compiler settings
 CC = gcc
 CFLAGS = -W -std=c99 -pedantic -O3 -c -I../source
+# CFLAGS = -W -O3 -c -I../source
 LFLAGS =
 LIBS =
 
-# Non-windows systems need pthread
+# Non-windows systems need pthread and rt
 ifndef WINDOWS
-LIBS += -lpthread
+LIBS += -lpthread -lrt
 endif
 
 # MinGW32 GCC 4.5 link problem fix
