@@ -24,7 +24,7 @@
 # ----------------------------------------------------------------------------------------
 
 # Name of the distribution
-distname=TinyCThread-1.0
+distname=TinyCThread-1.1
 
 # Build all the necessary files
 echo Building documentation...

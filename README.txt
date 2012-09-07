@@ -1,4 +1,4 @@
-TinyCThread v1.0
+TinyCThread v1.1
 ================
 
 http://tinycthread.bitsnbites.eu
@@ -43,8 +43,14 @@ Windows/MS Visual Studio:
 History
 -------
 
-v1.0 - 2012.??.??
+v1.1 - 2012.9.8
   - First release.
+  - Updated API to better match the final specification (e.g. removed xtime).
+  - Some functionality still missing (mtx_timedlock, TSS destructors under
+    Windows, ...).
+
+v1.0 - Never released
+  - Development version based on C11 specification draft.
 
 
 
