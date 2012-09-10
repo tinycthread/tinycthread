@@ -47,6 +47,11 @@ freely, subject to the following restrictions:
   #define FALSE 0
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 int mtx_init(mtx_t *mtx, int type)
 {
 #if defined(_TTHREAD_WIN32_)
@@ -585,4 +590,9 @@ int _tthread_clock_gettime(clockid_t clk_id, struct timespec *ts)
   return 0;
 }
 #endif // _TTHREAD_EMULATE_CLOCK_GETTIME_
+
+
+#ifdef __cplusplus
+}
+#endif
 

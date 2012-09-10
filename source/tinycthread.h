@@ -24,6 +24,10 @@ freely, subject to the following restrictions:
 #ifndef _TINYCTHREAD_H_
 #define _TINYCTHREAD_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
 * @file
 * @mainpage TinyCThread API Reference
@@ -432,6 +436,10 @@ void *tss_get(tss_t key);
 */
 int tss_set(tss_t key, void *val);
 
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _TINYTHREAD_H_ */
 
