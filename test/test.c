@@ -96,6 +96,7 @@ int ThreadCondition2(void * aArg)
     fflush(stdout);
     cnd_wait(&gCond, &gMutex);
   }
+  mtx_unlock(&gMutex);
   printf(".\n");
   return 0;
 }
@@ -105,6 +106,30 @@ int ThreadYield(void * aArg)
 {
   /* Yield... */
   thrd_yield();
+  return 0;
+}
+
+static once_flag once_flags[10000];
+
+/* Once function */
+void OnceFunc(void)
+{
+  static int calls = 0;
+  mtx_lock(&gMutex);
+  ++ gCount;
+  mtx_unlock(&gMutex);
+}
+
+/* Once thread function */
+int OnceThread(void* data)
+{
+  int i;
+
+  for (i = 0; i < 10000; i++)
+  {
+    call_once(&(once_flags[i]), OnceFunc);
+  }
+
   return 0;
 }
 
@@ -280,6 +305,40 @@ int main(void)
     printf(" Time = %ld.%09ld\n", (long)ts.tv_sec, ts.tv_nsec);
     clock_gettime(TIME_UTC, &ts);
     printf(" Time = %ld.%09ld\n", (long)ts.tv_sec, ts.tv_nsec);
+  }
+
+  /* Test 8: Once */
+  printf("PART VIII: Once, %d times from 16 threads\n", 10000);
+  {
+    const once_flag once_flag_init = ONCE_FLAG_INIT;
+    thrd_t threads[16];
+    int i;
+
+    /* Initialize 10000 once_flags */
+    for (i = 0; i < 10000 ; i++)
+    {
+      once_flags[i] = once_flag_init;
+    }
+
+    /* Clear the global counter. */
+    mtx_lock(&gMutex);
+    gCount = 0;
+    mtx_unlock(&gMutex);
+
+    /* Create 32 threads */
+    for (i = 0; i < 16; i++)
+    {
+      thrd_create(&(threads[i]), OnceThread, NULL);
+    }
+
+    /* Wait for all threads to finish executing. */
+    for (i = 0; i < 16; i++)
+    {
+      thrd_join(threads[i], NULL);
+    }
+
+    /* Check the global count */
+    printf(" gCount = %d (should be 10000)\n", gCount);
   }
 
   /* FIXME: Implement some more tests for the TinyCThread API... */
