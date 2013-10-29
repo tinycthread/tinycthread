@@ -1,5 +1,6 @@
 /* -*- mode: c; tab-width: 2; indent-tabs-mode: nil; -*-
 Copyright (c) 2012 Marcus Geelnard
+Copyright (c) 2013 Evan Nemerson
 
 This software is provided 'as-is', without any express or implied
 warranty. In no event will the authors be held liable for any damages
@@ -23,6 +24,13 @@ freely, subject to the following restrictions:
 
 #include <stdio.h>
 #include <tinycthread.h>
+#include <assert.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <limits.h>
+#include <time.h>
+#include <strings.h>
+#include <string.h>
 
 /* HACK: Mac OS X, early MinGW, and TCC do not support compile time
    thread-local storage */
@@ -42,27 +50,68 @@ int gCount;
 /* Condition variable */
 cnd_t gCond;
 
-/* Thread function: Thread ID */
-int ThreadIDs(void * aArg)
+once_flag onceFlags[10000];
+
+typedef void(*TestFunc)();
+
+typedef struct {
+  const char* name;
+  TestFunc func;
+} Test;
+
+
+int thread_test_args (void * aArg)
 {
-  int myId = *(int*)aArg;
-  printf(" Hello, I'm thread %d.\n", myId);
-  fflush(stdout);
-  return myId;
+  return *(int*)aArg;
+}
+
+void test_thread_arg_and_retval()
+{
+  const int n_threads = 4;
+  thrd_t threads[n_threads];
+  int ids[n_threads];
+  int retval;
+  int i;
+
+  for (i = 0; i < n_threads; i++)
+  {
+    ids[i] = rand();
+    thrd_create(&(threads[i]), thread_test_args, (void*) &(ids[i]));
+  }
+
+  for (i = 0; i < n_threads; i++)
+  {
+    thrd_join(threads[i], &retval);
+    assert (retval == ids[i]);
+  }
 }
 
 #ifndef NO_CT_TLS
 /* Thread function: Compile time thread-local storage */
-int ThreadTLS(void * aArg)
+int thread_test_local_storage(void * aArg)
 {
-  gLocalVar = 2;
-  printf(" My gLocalVar is %d.\n", gLocalVar);
+  gLocalVar = rand();
   return 0;
+}
+
+void test_thread_local_storage()
+{
+  thrd_t t1;
+
+  /* Clear the TLS variable (it should keep this value after all
+     threads are finished). */
+  gLocalVar = 1;
+
+  /* Start a child thread that modifies gLocalVar */
+  thrd_create(&t1, thread_test_local_storage, NULL);
+  thrd_join(t1, NULL);
+
+  /* Check if the TLS variable has changed */
+  assert(gLocalVar == 1);
 }
 #endif
 
-/* Thread function: Mutex locking */
-int ThreadLock(void * aArg)
+int thread_lock(void * aArg)
 {
   int i;
   for (i = 0; i < 10000; ++ i)
@@ -74,8 +123,29 @@ int ThreadLock(void * aArg)
   return 0;
 }
 
+void test_mutex_locking()
+{
+  const int n_threads = 100;
+  thrd_t t[n_threads];
+  int i;
+
+  gCount = 0;
+
+  for (i = 0; i < n_threads; ++ i)
+  {
+    thrd_create(&(t[i]), thread_lock, NULL);
+  }
+
+  for (i = 0; i < n_threads; ++ i)
+  {
+    thrd_join(t[i], NULL);
+  }
+
+  assert(gCount == (n_threads * 10000));
+}
+
 /* Thread function: Condition notifier */
-int ThreadCondition1(void * aArg)
+int thread_condition_notifier(void * aArg)
 {
   mtx_lock(&gMutex);
   -- gCount;
@@ -85,267 +155,311 @@ int ThreadCondition1(void * aArg)
 }
 
 /* Thread function: Condition waiter */
-int ThreadCondition2(void * aArg)
+int thread_condition_waiter(void * aArg)
 {
-  printf(" Wating...");
   fflush(stdout);
   mtx_lock(&gMutex);
   while(gCount > 0)
   {
-    printf(".");
     fflush(stdout);
     cnd_wait(&gCond, &gMutex);
   }
   mtx_unlock(&gMutex);
-  printf(".\n");
   return 0;
 }
 
+void test_condition_variables ()
+{
+  thrd_t t1, t[40];
+  int i;
+
+  /* Set the global counter to the number of threads to run. */
+  gCount = 40;
+
+  /* Start the waiting thread (it will wait for gCount to reach
+     zero). */
+  thrd_create(&t1, thread_condition_waiter, NULL);
+
+  /* Start a bunch of child threads (these will decrease gCount by 1
+     when they finish) */
+  for (i = 0; i < 40; ++ i)
+  {
+    thrd_create(&t[i], thread_condition_notifier, NULL);
+  }
+
+  /* Wait for the waiting thread to finish */
+  thrd_join(t1, NULL);
+
+  /* Wait for the other threads to finish */
+  for (i = 0; i < 40; ++ i)
+  {
+    thrd_join(t[i], NULL);
+  }
+}
+
 /* Thread function: Yield */
-int ThreadYield(void * aArg)
+int thread_yield(void * aArg)
 {
   /* Yield... */
   thrd_yield();
   return 0;
 }
 
-static once_flag once_flags[10000];
+void test_yield ()
+{
+  thrd_t t[40];
+  int i;
+
+  /* Start a bunch of child threads */
+  for (i = 0; i < 40; ++ i)
+  {
+    thrd_create(&t[i], thread_yield, NULL);
+  }
+
+  /* Yield... */
+  thrd_yield();
+
+  /* Wait for the threads to finish */
+  for (i = 0; i < 40; ++ i)
+  {
+    thrd_join(t[i], NULL);
+  }
+}
+
+int timespec_compare (struct timespec* a, struct timespec* b)
+{
+  if (a->tv_sec != b->tv_sec)
+  {
+    return a->tv_sec - b->tv_sec;
+  }
+  else if (a->tv_nsec != b->tv_nsec)
+  {
+    return a->tv_nsec - b->tv_nsec;
+  }
+  else
+  {
+    return 0;
+  }
+}
+
+void test_sleep()
+{
+  int i;
+  struct timespec ts;
+  struct timespec end_ts;
+
+  /* Calculate current time + 100ms */
+  clock_gettime(TIME_UTC, &ts);
+  ts.tv_nsec += 100000000;
+  if (ts.tv_nsec >= 1000000000)
+    {
+      ts.tv_sec++;
+      ts.tv_nsec -= 1000000000;
+    }
+
+  /* Sleep... */
+  thrd_sleep(&ts, NULL);
+
+  clock_gettime(TIME_UTC, &end_ts);
+
+  assert(timespec_compare(&ts, &end_ts) <= 0);
+}
+
+void test_time()
+{
+  struct timespec ts;
+  clock_gettime(TIME_UTC, &ts);
+}
 
 /* Once function */
-void OnceFunc(void)
+void thread_once_func(void)
 {
-  static int calls = 0;
   mtx_lock(&gMutex);
   ++ gCount;
   mtx_unlock(&gMutex);
 }
 
 /* Once thread function */
-int OnceThread(void* data)
+int thread_once(void* data)
 {
   int i;
 
   for (i = 0; i < 10000; i++)
   {
-    call_once(&(once_flags[i]), OnceFunc);
+    call_once(&(onceFlags[i]), thread_once_func);
   }
 
   return 0;
 }
 
-
-/* This is the main program (i.e. the main thread) */
-int main(void)
+void test_once ()
 {
-  /* Initialization... */
+  const once_flag once_flag_init = ONCE_FLAG_INIT;
+  const int n_threads = 16;
+  thrd_t threads[n_threads];
+  int i;
+
+  /* Initialize 10000 once_flags */
+  for (i = 0; i < 10000 ; i++)
+  {
+    onceFlags[i] = once_flag_init;
+  }
+
+  /* Clear the global counter. */
+  mtx_lock(&gMutex);
+  gCount = 0;
+  mtx_unlock(&gMutex);
+
+  /* Create threads */
+  for (i = 0; i < n_threads; i++)
+  {
+    thrd_create(&(threads[i]), thread_once, NULL);
+  }
+
+  /* Wait for all threads to finish executing. */
+  for (i = 0; i < n_threads; i++)
+  {
+    thrd_join(threads[i], NULL);
+  }
+
+  /* Check the global count */
+  assert(gCount == 10000);
+}
+
+
+
+const Test tests[] =
+{
+  { "thread-arg-and-retval", test_thread_arg_and_retval },
+#ifndef NO_CT_TLS
+  { "thread-local-storage", test_thread_local_storage },
+#endif
+  { "mutex-locking", test_mutex_locking },
+  { "condition-variables", test_condition_variables },
+  { "yield", test_yield },
+  { "sleep", test_sleep },
+  { "time", test_time },
+  { "once", test_once },
+  { NULL, }
+};
+
+void test_config_print_and_exit(const Test* tests, int argc, char** argv)
+{
+  int test_n;
+
+  fprintf (stdout, "Usage: %s [OPTION]... [TEST]...\n", argv[0]);
+  fprintf (stdout, "Tests for TinyCThread.\n");
+  fprintf (stdout, "\n");
+  fprintf (stdout, "Available tests:\n");
+  for (test_n = 0; tests[test_n].name != NULL; test_n++)
+  {
+    fprintf (stdout, "  %s\n", tests[test_n].name);
+  }
+  fprintf (stdout, "\n");
+  fprintf (stdout, "Options:\n");
+  fprintf (stdout, "  -s seed       Seed for the random number generator.\n");
+  fprintf (stdout, "  -h            Print this help screen and exit.\n");
+}
+
+void test_run(const Test* test, unsigned int seed)
+{
+  int i;
+  fputs("  ", stdout);
+  fputs(test->name, stdout);
+  for (i = strlen(test->name); i < 48; i++)
+  {
+    fputc(' ', stdout);
+  }
+  fflush(stdout);
+  srand(seed);
+  test->func();
+  fprintf(stdout, "OK\n");
+}
+
+int tests_run(const Test* tests, int argc, char** argv)
+{
+  int opt;
+  int optc = 0;
+  unsigned long int seed;
+  char* endptr;
+  struct timespec tv;
+  int test_n;
+  int found;
+
+  clock_gettime(TIME_UTC, &tv);
+  srand(tv.tv_nsec);
+  seed = rand();
+
+  while ((opt = getopt(argc, argv, "s:h")) != -1)
+  {
+    switch (opt)
+    {
+      case 's':
+        {
+          unsigned long int strtoul(const char *nptr, char **endptr, int base);
+          seed = strtoul(optarg, &endptr, 0);
+          if (*endptr != '\0' || seed > UINT_MAX)
+          {
+            fprintf (stdout, "Invalid seed `%s'.\n", optarg);
+            exit(-1);
+          }
+        }
+        break;
+      case 'h':
+        test_config_print_and_exit(tests, argc, argv);
+        return 0;
+      default:
+        test_config_print_and_exit(tests, argc, argv);
+        return -1;
+    }
+  }
+
+  fprintf(stdout, "Random seed: %u\n", seed);
+
+  if (optind < argc)
+  {
+    for (; optind < argc; optind++)
+    {
+      found = 0;
+      for (test_n = 0; tests[test_n].name != NULL; test_n++)
+      {
+        if (strcasecmp(argv[optind], tests[test_n].name) == 0)
+        {
+          test_run (&(tests[test_n]), seed);
+          found = 1;
+          break;
+        }
+      }
+
+      if (found == 0)
+      {
+        fprintf (stderr, "Could not find test `%s'.\n", argv[optind]);
+        exit(-1);
+      }
+    }
+  }
+  else
+  {
+    for (test_n = 0; tests[test_n].name != NULL; test_n++)
+    {
+      test_run (&(tests[test_n]), seed);
+    }
+  }
+
+  return 0;
+}
+
+int main(int argc, char** argv)
+{
+  int res;
+
   mtx_init(&gMutex, mtx_plain);
   cnd_init(&gCond);
 
-  /* Test 1: thread arguments & return values */
-  printf("PART I: Thread arguments & return values\n");
-  {
-    thrd_t t1, t2, t3, t4;
-    int id1, id2, id3, id4, ret1, ret2, ret3, ret4;
+  res = tests_run(tests, argc, argv);
 
-    /* Start a bunch of child threads */
-    id1 = 1;
-    thrd_create(&t1, ThreadIDs, (void*)&id1);
-    thrd_join(t1, &ret1);
-    printf(" Thread 1 returned %d.\n", ret1);
-    id2 = 2;
-    thrd_create(&t2, ThreadIDs, (void*)&id2);
-    thrd_join(t2, &ret2);
-    printf(" Thread 2 returned %d.\n", ret2);
-    id3 = 3;
-    thrd_create(&t3, ThreadIDs, (void*)&id3);
-    thrd_join(t3, &ret3);
-    printf(" Thread 3 returned %d.\n", ret3);
-    id4 = 4;
-    thrd_create(&t4, ThreadIDs, (void*)&id4);
-    thrd_join(t4, &ret4);
-    printf(" Thread 4 returned %d.\n", ret4);
-  }
-
-  /* Test 2: compile time thread local storage */
-  printf("PART II: Compile time thread local storage\n");
-#ifndef NO_CT_TLS
-  {
-    thrd_t t1;
-
-    /* Clear the TLS variable (it should keep this value after all threads are
-       finished). */
-    gLocalVar = 1;
-    printf(" Main gLocalVar is %d.\n", gLocalVar);
-
-    /* Start a child thread that modifies gLocalVar */
-    thrd_create(&t1, ThreadTLS, NULL);
-    thrd_join(t1, NULL);
-
-    /* Check if the TLS variable has changed */
-    if(gLocalVar == 1)
-      printf(" Main gLocalID was not changed by the child thread - OK!\n");
-    else
-      printf(" Main gLocalID was changed by the child thread - FAIL!\n");
-  }
-#else
-  printf(" Compile time TLS is not supported on this platform...\n");
-#endif
-
-  /* Test 3: mutex locking */
-  printf("PART III: Mutex locking (100 threads x 10000 iterations)\n");
-  {
-    thrd_t t[100];
-    int i;
-
-    /* Clear the global counter. */
-    gCount = 0;
-
-    /* Start a bunch of child threads */
-    for (i = 0; i < 100; ++ i)
-    {
-      thrd_create(&t[i], ThreadLock, NULL);
-    }
-
-    /* Wait for the threads to finish */
-    for (i = 0; i < 100; ++ i)
-    {
-      thrd_join(t[i], NULL);
-    }
-
-    /* Check the global count */
-    printf(" gCount = %d\n", gCount);
-  }
-
-  /* Test 4: condition variable */
-  printf("PART IV: Condition variable (40 + 1 threads)\n");
-  {
-    thrd_t t1, t[40];
-    int i;
-
-    /* Set the global counter to the number of threads to run. */
-    gCount = 40;
-
-    /* Start the waiting thread (it will wait for gCount to reach zero). */
-    thrd_create(&t1, ThreadCondition2, NULL);
-
-    /* Start a bunch of child threads (these will decrease gCount by 1 when they
-       finish) */
-    for (i = 0; i < 40; ++ i)
-    {
-      thrd_create(&t[i], ThreadCondition1, NULL);
-    }
-
-    /* Wait for the waiting thread to finish */
-    thrd_join(t1, NULL);
-
-    /* Wait for the other threads to finish */
-    for (i = 0; i < 40; ++ i)
-    {
-      thrd_join(t[i], NULL);
-    }
-  }
-
-  /* Test 5: yield */
-  printf("PART V: Yield (40 + 1 threads)\n");
-  {
-    thrd_t t[40];
-    int i;
-
-    /* Start a bunch of child threads */
-    for (i = 0; i < 40; ++ i)
-    {
-      thrd_create(&t[i], ThreadYield, NULL);
-    }
-
-    /* Yield... */
-    thrd_yield();
-
-    /* Wait for the threads to finish */
-    for (i = 0; i < 40; ++ i)
-    {
-      thrd_join(t[i], NULL);
-    }
-  }
-
-  /* Test 6: Sleep */
-  printf("PART VI: Sleep (10 x 100 ms)\n");
-  {
-    int i;
-    struct timespec ts;
-
-    printf(" Sleeping");
-    fflush(stdout);
-    for (i = 0; i < 10; ++ i)
-    {
-      /* Calculate current time + 100ms */
-      clock_gettime(TIME_UTC, &ts);
-      ts.tv_nsec += 100000000;
-      if (ts.tv_nsec >= 1000000000)
-      {
-        ts.tv_sec++;
-        ts.tv_nsec -= 1000000000;
-      }
-
-      /* Sleep... */
-      thrd_sleep(&ts, NULL);
-
-      printf(".");
-      fflush(stdout);
-    }
-    printf("\n");
-  }
-
-  /* Test 7: Time */
-  printf("PART VII: Current time (UTC), three times\n");
-  {
-    struct timespec ts;
-    clock_gettime(TIME_UTC, &ts);
-    printf(" Time = %ld.%09ld\n", (long)ts.tv_sec, ts.tv_nsec);
-    clock_gettime(TIME_UTC, &ts);
-    printf(" Time = %ld.%09ld\n", (long)ts.tv_sec, ts.tv_nsec);
-    clock_gettime(TIME_UTC, &ts);
-    printf(" Time = %ld.%09ld\n", (long)ts.tv_sec, ts.tv_nsec);
-  }
-
-  /* Test 8: Once */
-  printf("PART VIII: Once, %d times from 16 threads\n", 10000);
-  {
-    const once_flag once_flag_init = ONCE_FLAG_INIT;
-    thrd_t threads[16];
-    int i;
-
-    /* Initialize 10000 once_flags */
-    for (i = 0; i < 10000 ; i++)
-    {
-      once_flags[i] = once_flag_init;
-    }
-
-    /* Clear the global counter. */
-    mtx_lock(&gMutex);
-    gCount = 0;
-    mtx_unlock(&gMutex);
-
-    /* Create 32 threads */
-    for (i = 0; i < 16; i++)
-    {
-      thrd_create(&(threads[i]), OnceThread, NULL);
-    }
-
-    /* Wait for all threads to finish executing. */
-    for (i = 0; i < 16; i++)
-    {
-      thrd_join(threads[i], NULL);
-    }
-
-    /* Check the global count */
-    printf(" gCount = %d (should be 10000)\n", gCount);
-  }
-
-  /* FIXME: Implement some more tests for the TinyCThread API... */
-
-  /* Finalization... */
   mtx_destroy(&gMutex);
   cnd_destroy(&gCond);
 
-  return 0;
+  return res;
 }
