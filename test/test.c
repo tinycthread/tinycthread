@@ -24,9 +24,9 @@ freely, subject to the following restrictions:
 #include <stdio.h>
 #include <tinycthread.h>
 
-/* HACK: Mac OS X and early MinGW do not support compile time thread-local
-   storage */
-#if defined(__APPLE__) || (defined(__MINGW32__) && (__GNUC__ < 4))
+/* HACK: Mac OS X, early MinGW, and TCC do not support compile time
+   thread-local storage */
+#if defined(__APPLE__) || (defined(__MINGW32__) && (__GNUC__ < 4)) || defined(__TINYC__)
  #define NO_CT_TLS
 #endif
 

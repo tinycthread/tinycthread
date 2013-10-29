@@ -152,7 +152,7 @@ int _tthread_clock_gettime(clockid_t clk_id, struct timespec *ts);
 * @note This directive is currently not supported on Mac OS X (it will give
 * a compiler error), since compile-time TLS is not supported in the Mac OS X
 * executable format. Also, some older versions of MinGW (before GCC 4.x) do
-* not support this directive.
+* not support this directive, nor does the Tiny C Compiler.
 * @hideinitializer
 */
 
