@@ -114,12 +114,28 @@ void test_thread_local_storage()
 int thread_lock(void * aArg)
 {
   int i;
+  mtx_t try_mutex;
+
   for (i = 0; i < 10000; ++ i)
   {
     mtx_lock(&gMutex);
+    assert(mtx_trylock(&gMutex) == thrd_busy);
     ++ gCount;
     mtx_unlock(&gMutex);
   }
+
+  mtx_init(&try_mutex, mtx_try);
+
+  mtx_lock(&gMutex);
+  for (i = 0; i < 10000; ++ i)
+  {
+    assert (mtx_trylock(&try_mutex) == thrd_success);
+    assert (mtx_trylock(&try_mutex) == thrd_busy);
+    ++ gCount;
+    mtx_unlock(&try_mutex);
+  }
+  mtx_unlock(&gMutex);
+
   return 0;
 }
 
@@ -141,7 +157,66 @@ void test_mutex_locking()
     thrd_join(t[i], NULL);
   }
 
-  assert(gCount == (n_threads * 10000));
+  assert(gCount == (n_threads * 10000 * 2));
+}
+
+struct TestMutexData {
+  mtx_t mtx;
+  volatile int i;
+  volatile int completed;
+};
+
+int test_mutex_recursive_cb(void* data)
+{
+  const int iterations = 10000;
+  int i;
+  struct TestMutexData* mutex_data = (struct TestMutexData*) data;
+
+  assert (mtx_lock (&(mutex_data->mtx)) == thrd_success);
+
+  for ( i = 0 ; i < iterations ; i++ )
+  {
+    mtx_lock (&(mutex_data->mtx));
+    assert (mutex_data->i++ == i);
+  }
+
+  for ( i = iterations - 1 ; i >= 0 ; i-- )
+  {
+    mtx_unlock (&(mutex_data->mtx));
+    assert (--(mutex_data->i) == i);
+  }
+
+  assert (mutex_data->i == 0);
+
+  mutex_data->completed++;
+
+  mtx_unlock (&(mutex_data->mtx));
+
+  return 0;
+}
+
+void test_mutex_recursive()
+{
+  const int n_threads = 100;
+  thrd_t t[n_threads];
+  int i;
+  struct TestMutexData data;
+
+  mtx_init(&(data.mtx), mtx_recursive);
+  data.i = 0;
+  data.completed = 0;
+
+  for ( i = 0 ; i < n_threads ; i++ )
+  {
+    thrd_create (&(t[i]), test_mutex_recursive_cb, &data);
+  }
+
+  for ( i = 0 ; i < n_threads ; i++ )
+  {
+    thrd_join (t[i], NULL);
+  }
+
+  assert (data.completed == n_threads);
 }
 
 /* Thread function: Condition notifier */
@@ -335,6 +410,7 @@ const Test tests[] =
   { "thread-local-storage", test_thread_local_storage },
 #endif
   { "mutex-locking", test_mutex_locking },
+  { "mutex-recursive", test_mutex_recursive },
   { "condition-variables", test_condition_variables },
   { "yield", test_yield },
   { "sleep", test_sleep },
