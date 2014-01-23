@@ -120,11 +120,11 @@ extern "C" {
 
 #if defined(_TTHREAD_WIN32_)
 /* Emulate struct timespec */
-struct _ttherad_timespec {
+struct _tthread_timespec {
   time_t tv_sec;
   long   tv_nsec;
 };
-#define timespec _ttherad_timespec
+#define timespec _tthread_timespec
 #endif
 
 /* Emulate clockid_t */
