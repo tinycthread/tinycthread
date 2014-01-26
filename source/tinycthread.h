@@ -1,5 +1,6 @@
 /* -*- mode: c; tab-width: 2; indent-tabs-mode: nil; -*-
 Copyright (c) 2012 Marcus Geelnard
+Copyright (c) 2013-2014 Evan Nemerson
 
 This software is provided 'as-is', without any express or implied
 warranty. In no event will the authors be held liable for any damages
@@ -173,7 +174,11 @@ int _tthread_clock_gettime(clockid_t clk_id, struct timespec *ts);
 #endif
 
 /* Macros */
-#define TSS_DTOR_ITERATIONS 0
+#if defined(_TTHREAD_WIN32_)
+#define TSS_DTOR_ITERATIONS (4)
+#else
+#define TSS_DTOR_ITERATIONS PTHREAD_DESTRUCTOR_ITERATIONS
+#endif
 
 /* Function return values */
 #define thrd_error    0 /**< The requested operation failed */
@@ -417,9 +422,11 @@ typedef void (*tss_dtor_t)(void *val);
 * @param dtor Destructor function. This can be NULL.
 * @return @ref thrd_success on success, or @ref thrd_error if the request could
 * not be honored.
-* @note The destructor function is not supported under Windows. If @c dtor is
-* not NULL when calling this function under Windows, the function will fail
-* and return @ref thrd_error.
+* @note On Windows, the @c dtor will definitely be called when
+* appropriate for threads created with @ref thrd_create.  It will be
+* called for other threads in most cases, the possible exception being
+* for DLLs loaded with LoadLibraryEx.  In order to be certain, you
+* should use @ref thrd_create whenever possible.
 */
 int tss_create(tss_t *key, tss_dtor_t dtor);
 

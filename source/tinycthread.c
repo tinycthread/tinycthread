@@ -1,5 +1,6 @@
 /* -*- mode: c; tab-width: 2; indent-tabs-mode: nil; -*-
 Copyright (c) 2012 Marcus Geelnard
+Copyright (c) 2013-2014 Evan Nemerson
 
 This software is provided 'as-is', without any express or implied
 warranty. In no event will the authors be held liable for any damages
@@ -313,6 +314,63 @@ int cnd_timedwait(cnd_t *cond, mtx_t *mtx, const struct timespec *ts)
 #endif
 }
 
+#if defined(_TTHREAD_WIN32_)
+struct TinyCThreadTSSData {
+  void* value;
+  tss_t key;
+  struct TinyCThreadTSSData* next;
+};
+
+static tss_dtor_t _tinycthread_tss_dtors[1088] = { NULL, };
+
+static _Thread_local struct TinyCThreadTSSData* _tinycthread_tss_head = NULL;
+static _Thread_local struct TinyCThreadTSSData* _tinycthread_tss_tail = NULL;
+
+static void _tinycthread_tss_cleanup () {
+  struct TinyCThreadTSSData* data;
+  int iteration;
+  unsigned int again = 1;
+  void* value;
+
+  for (iteration = 0 ; iteration < TSS_DTOR_ITERATIONS && again > 0 ; iteration++)
+  {
+    again = 0;
+    for (data = _tinycthread_tss_head ; data != NULL ; data = data->next)
+    {
+      if (data->value != NULL)
+      {
+        value = data->value;
+		data->value = NULL;
+
+        if (_tinycthread_tss_dtors[data->key] != NULL)
+        {
+          again = 1;
+          _tinycthread_tss_dtors[data->key](value);
+        }
+      }
+    }
+  }
+
+  for (data = _tinycthread_tss_head ; data != NULL ; data = data->next)
+  {
+    free (data);
+  }
+  _tinycthread_tss_head = NULL;
+  _tinycthread_tss_tail = NULL;
+}
+
+static void NTAPI _tinycthread_tss_callback(PVOID h, DWORD dwReason, PVOID pv)
+{
+  if (_tinycthread_tss_head != NULL && (dwReason == DLL_THREAD_DETACH || dwReason == DLL_PROCESS_DETACH))
+  {
+    _tinycthread_tss_cleanup();
+  }
+}
+
+#pragma data_seg(".CRT$XLB")
+PIMAGE_TLS_CALLBACK p_thread_callback = _tinycthread_tss_callback;
+#pragma data_seg()
+#endif
 
 /** Information to pass to the new thread (what to run). */
 typedef struct {
@@ -346,6 +404,11 @@ static void * _thrd_wrapper_function(void * aArg)
   res = fun(arg);
 
 #if defined(_TTHREAD_WIN32_)
+  if (_tinycthread_tss_head != NULL)
+  {
+    _tinycthread_tss_cleanup();
+  }
+
   return res;
 #else
   pres = malloc(sizeof(int));
@@ -417,6 +480,11 @@ int thrd_equal(thrd_t thr0, thrd_t thr1)
 void thrd_exit(int res)
 {
 #if defined(_TTHREAD_WIN32_)
+  if (_tinycthread_tss_head != NULL)
+  {
+    _tinycthread_tss_cleanup();
+  }
+
   ExitThread(res);
 #else
   void *pres = malloc(sizeof(int));
@@ -520,16 +588,14 @@ void thrd_yield(void)
 int tss_create(tss_t *key, tss_dtor_t dtor)
 {
 #if defined(_TTHREAD_WIN32_)
-  /* FIXME: The destructor function is not supported yet... */
-  if (dtor != NULL)
-  {
-    return thrd_error;
-  }
+  struct TinyCThreadTSSData* data = NULL;
+
   *key = TlsAlloc();
   if (*key == TLS_OUT_OF_INDEXES)
   {
     return thrd_error;
   }
+  _tinycthread_tss_dtors[*key] = dtor;
 #else
   if (pthread_key_create(key, dtor) != 0)
   {
@@ -542,6 +608,31 @@ int tss_create(tss_t *key, tss_dtor_t dtor)
 void tss_delete(tss_t key)
 {
 #if defined(_TTHREAD_WIN32_)
+  struct TinyCThreadTSSData* data = (struct TinyCThreadTSSData*) TlsGetValue (key);
+  struct TinyCThreadTSSData* prev = NULL;
+  if (data != NULL)
+  {
+    if (data == _tinycthread_tss_head)
+    {
+      _tinycthread_tss_head = data->next;
+    }
+    else
+    {
+      prev = _tinycthread_tss_head;
+      while (prev->next != data)
+      {
+        prev = prev->next;
+      }
+    }
+
+    if (data == _tinycthread_tss_tail)
+    {
+      _tinycthread_tss_tail = prev;
+    }
+
+    free (data);
+  }
+  _tinycthread_tss_dtors[key] = NULL;
   TlsFree(key);
 #else
   pthread_key_delete(key);
@@ -551,7 +642,12 @@ void tss_delete(tss_t key)
 void *tss_get(tss_t key)
 {
 #if defined(_TTHREAD_WIN32_)
-  return TlsGetValue(key);
+  struct TinyCThreadTSSData* data = (struct TinyCThreadTSSData*)TlsGetValue(key);
+  if (data == NULL)
+  {
+    return NULL;
+  }
+  return data->value;
 #else
   return pthread_getspecific(key);
 #endif
@@ -560,10 +656,40 @@ void *tss_get(tss_t key)
 int tss_set(tss_t key, void *val)
 {
 #if defined(_TTHREAD_WIN32_)
-  if (TlsSetValue(key, val) == 0)
+  struct TinyCThreadTSSData* data = (struct TinyCThreadTSSData*)TlsGetValue(key);
+  if (data == NULL)
   {
-    return thrd_error;
+    data = (struct TinyCThreadTSSData*)malloc(sizeof(struct TinyCThreadTSSData));
+    if (data == NULL)
+    {
+      return thrd_error;
+	}
+
+    data->value = NULL;
+    data->key = key;
+    data->next = NULL;
+
+    if (_tinycthread_tss_tail != NULL)
+    {
+      _tinycthread_tss_tail->next = data;
+    }
+    else
+    {
+      _tinycthread_tss_tail = data;
+    }
+
+    if (_tinycthread_tss_head == NULL)
+    {
+      _tinycthread_tss_head = data;
+    }
+
+    if (!TlsSetValue(key, data))
+    {
+      free (data);
+	  return thrd_error;
+    }
   }
+  data->value = val;
 #else
   if (pthread_setspecific(key, val) != 0)
   {

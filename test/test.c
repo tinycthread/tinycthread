@@ -115,12 +115,14 @@ void test_thread_local_storage()
 }
 #endif
 
+#define TEST_THREAD_LOCK_ITERATIONS_PER_THREAD 10000
+
 int thread_lock(void * aArg)
 {
   int i;
   mtx_t try_mutex;
 
-  for (i = 0; i < 10000; ++ i)
+  for (i = 0; i < TEST_THREAD_LOCK_ITERATIONS_PER_THREAD; ++ i)
   {
     mtx_lock(&gMutex);
     assert(mtx_trylock(&gMutex) == thrd_busy);
@@ -131,7 +133,7 @@ int thread_lock(void * aArg)
   mtx_init(&try_mutex, mtx_try);
 
   mtx_lock(&gMutex);
-  for (i = 0; i < 10000; ++ i)
+  for (i = 0; i < TEST_THREAD_LOCK_ITERATIONS_PER_THREAD; ++ i)
   {
     assert (mtx_trylock(&try_mutex) == thrd_success);
     assert (mtx_trylock(&try_mutex) == thrd_busy);
@@ -162,7 +164,7 @@ void test_mutex_locking()
     thrd_join(t[i], NULL);
   }
 
-  assert(gCount == (TEST_MUTEX_LOCKING_N_THREADS * 10000 * 2));
+  assert(gCount == (TEST_MUTEX_LOCKING_N_THREADS * TEST_THREAD_LOCK_ITERATIONS_PER_THREAD * 2));
 }
 
 struct TestMutexData {
@@ -408,6 +410,74 @@ void test_once ()
   assert(gCount == 10000);
 }
 
+struct TestThreadSpecificData {
+  tss_t key;
+  mtx_t mutex;
+  int values_freed;
+} test_tss_data;
+
+void test_tss_free (void* val)
+{
+  mtx_lock(&(test_tss_data.mutex));
+  test_tss_data.values_freed++;
+  mtx_unlock(&(test_tss_data.mutex));
+  free(val);
+}
+
+int test_tss_thread_func (void* data)
+{
+  int* value = (int*)malloc(sizeof(int));
+  void* v = NULL;
+
+  *value = rand();
+  
+  assert(tss_get(test_tss_data.key) == NULL);
+  tss_set(test_tss_data.key, value);
+  assert(tss_get(test_tss_data.key) == value);
+
+  tss_set(test_tss_data.key, NULL);
+  assert(tss_get(test_tss_data.key) == NULL);
+  tss_set(test_tss_data.key, value);
+  assert(tss_get(test_tss_data.key) == value);
+
+  return 0;
+}
+
+#define TEST_TSS_N_THREADS 256
+
+void test_tss ()
+{
+  thrd_t threads[TEST_TSS_N_THREADS];
+  int* value = (int*)malloc(sizeof(int));
+  int i;
+
+  *value = rand();
+
+  tss_create(&(test_tss_data.key), test_tss_free);
+  mtx_init(&(test_tss_data.mutex), mtx_plain);
+  test_tss_data.values_freed = 0;
+
+  assert(tss_get(test_tss_data.key) == NULL);
+  tss_set(test_tss_data.key, value);
+  assert(tss_get(test_tss_data.key) == value);
+
+  for (i = 0; i < TEST_TSS_N_THREADS; i++)
+  {
+    thrd_create(&(threads[i]), test_tss_thread_func, NULL);
+  }
+
+  for (i = 0; i < TEST_TSS_N_THREADS; i++)
+  {
+    thrd_join(threads[i], NULL);
+  }
+
+  assert(test_tss_data.values_freed == TEST_TSS_N_THREADS);
+  assert(tss_get(test_tss_data.key) == value);
+  tss_delete(test_tss_data.key);
+  assert(tss_get(test_tss_data.key) == NULL);
+  assert(test_tss_data.values_freed == TEST_TSS_N_THREADS);
+}
+
 
 
 const Test tests[] =
@@ -423,6 +493,7 @@ const Test tests[] =
   { "sleep", test_sleep },
   { "time", test_time },
   { "once", test_once },
+  { "thread-specific-storage", test_tss },
   { NULL, }
 };
 
