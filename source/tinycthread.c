@@ -110,10 +110,17 @@ int mtx_trylock(mtx_t *mtx)
 {
 #if defined(_TTHREAD_WIN32_)
   int ret = TryEnterCriticalSection(&mtx->mHandle) ? thrd_success : thrd_busy;
-  if ((!mtx->mRecursive) && (ret == thrd_success) && mtx->mAlreadyLocked)
+  if ((!mtx->mRecursive) && (ret == thrd_success))
   {
-    LeaveCriticalSection(&mtx->mHandle);
-    ret = thrd_busy;
+    if (mtx->mAlreadyLocked)
+    {
+      LeaveCriticalSection(&mtx->mHandle);
+      ret = thrd_busy;
+    }
+    else
+    {
+      mtx->mAlreadyLocked = TRUE;
+    }
   }
   return ret;
 #else
