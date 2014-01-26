@@ -25,12 +25,15 @@ freely, subject to the following restrictions:
 #include <stdio.h>
 #include <tinycthread.h>
 #include <assert.h>
-#include <unistd.h>
 #include <stdlib.h>
 #include <limits.h>
 #include <time.h>
-#include <strings.h>
 #include <string.h>
+
+#if !defined(_TTHREAD_WIN32_)
+#include <unistd.h>
+#include <strings.h>
+#endif
 
 /* HACK: Mac OS X, early MinGW, and TCC do not support compile time
    thread-local storage */
@@ -65,21 +68,22 @@ int thread_test_args (void * aArg)
   return *(int*)aArg;
 }
 
+#define TEST_THREAD_ARGS_N_THREADS 4
+
 void test_thread_arg_and_retval()
 {
-  const int n_threads = 4;
-  thrd_t threads[n_threads];
-  int ids[n_threads];
+  thrd_t threads[TEST_THREAD_ARGS_N_THREADS];
+  int ids[TEST_THREAD_ARGS_N_THREADS];
   int retval;
   int i;
 
-  for (i = 0; i < n_threads; i++)
+  for (i = 0; i < TEST_THREAD_ARGS_N_THREADS; i++)
   {
     ids[i] = rand();
     thrd_create(&(threads[i]), thread_test_args, (void*) &(ids[i]));
   }
 
-  for (i = 0; i < n_threads; i++)
+  for (i = 0; i < TEST_THREAD_ARGS_N_THREADS; i++)
   {
     thrd_join(threads[i], &retval);
     assert (retval == ids[i]);
@@ -139,25 +143,26 @@ int thread_lock(void * aArg)
   return 0;
 }
 
+#define TEST_MUTEX_LOCKING_N_THREADS 128
+
 void test_mutex_locking()
 {
-  const int n_threads = 100;
-  thrd_t t[n_threads];
+  thrd_t t[TEST_MUTEX_LOCKING_N_THREADS];
   int i;
 
   gCount = 0;
 
-  for (i = 0; i < n_threads; ++ i)
+  for (i = 0; i < TEST_MUTEX_LOCKING_N_THREADS; ++ i)
   {
     thrd_create(&(t[i]), thread_lock, NULL);
   }
 
-  for (i = 0; i < n_threads; ++ i)
+  for (i = 0; i < TEST_MUTEX_LOCKING_N_THREADS; ++ i)
   {
     thrd_join(t[i], NULL);
   }
 
-  assert(gCount == (n_threads * 10000 * 2));
+  assert(gCount == (TEST_MUTEX_LOCKING_N_THREADS * 10000 * 2));
 }
 
 struct TestMutexData {
@@ -195,10 +200,11 @@ int test_mutex_recursive_cb(void* data)
   return 0;
 }
 
+#define TEST_MUTEX_RECURSIVE_N_THREADS 128
+
 void test_mutex_recursive()
 {
-  const int n_threads = 100;
-  thrd_t t[n_threads];
+  thrd_t t[TEST_MUTEX_RECURSIVE_N_THREADS];
   int i;
   struct TestMutexData data;
 
@@ -206,17 +212,17 @@ void test_mutex_recursive()
   data.i = 0;
   data.completed = 0;
 
-  for ( i = 0 ; i < n_threads ; i++ )
+  for ( i = 0 ; i < TEST_MUTEX_RECURSIVE_N_THREADS ; i++ )
   {
     thrd_create (&(t[i]), test_mutex_recursive_cb, &data);
   }
 
-  for ( i = 0 ; i < n_threads ; i++ )
+  for ( i = 0 ; i < TEST_MUTEX_RECURSIVE_N_THREADS ; i++ )
   {
     thrd_join (t[i], NULL);
   }
 
-  assert (data.completed == n_threads);
+  assert (data.completed == TEST_MUTEX_RECURSIVE_N_THREADS);
 }
 
 /* Thread function: Condition notifier */
@@ -367,11 +373,12 @@ int thread_once(void* data)
   return 0;
 }
 
+#define TEST_ONCE_N_THREADS 16
+
 void test_once ()
 {
   const once_flag once_flag_init = ONCE_FLAG_INIT;
-  const int n_threads = 16;
-  thrd_t threads[n_threads];
+  thrd_t threads[TEST_ONCE_N_THREADS];
   int i;
 
   /* Initialize 10000 once_flags */
@@ -386,13 +393,13 @@ void test_once ()
   mtx_unlock(&gMutex);
 
   /* Create threads */
-  for (i = 0; i < n_threads; i++)
+  for (i = 0; i < TEST_ONCE_N_THREADS; i++)
   {
     thrd_create(&(threads[i]), thread_once, NULL);
   }
 
   /* Wait for all threads to finish executing. */
-  for (i = 0; i < n_threads; i++)
+  for (i = 0; i < TEST_ONCE_N_THREADS; i++)
   {
     thrd_join(threads[i], NULL);
   }
@@ -466,6 +473,7 @@ int tests_run(const Test* tests, int argc, char** argv)
   srand(tv.tv_nsec);
   seed = rand();
 
+  #if !defined(_TTHREAD_WIN32_)
   while ((opt = getopt(argc, argv, "s:h")) != -1)
   {
     switch (opt)
@@ -513,13 +521,14 @@ int tests_run(const Test* tests, int argc, char** argv)
         exit(-1);
       }
     }
+
+    return 0;
   }
-  else
+  #endif
+
+  for (test_n = 0; tests[test_n].name != NULL; test_n++)
   {
-    for (test_n = 0; tests[test_n].name != NULL; test_n++)
-    {
-      test_run (&(tests[test_n]), seed);
-    }
+    test_run (&(tests[test_n]), seed);
   }
 
   return 0;
