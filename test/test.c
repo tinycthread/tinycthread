@@ -55,7 +55,7 @@ cnd_t gCond;
 
 once_flag onceFlags[10000];
 
-typedef void(*TestFunc)();
+typedef void(*TestFunc)(void);
 
 typedef struct {
   const char* name;
@@ -63,14 +63,14 @@ typedef struct {
 } Test;
 
 
-int thread_test_args (void * aArg)
+static int thread_test_args (void * aArg)
 {
   return *(int*)aArg;
 }
 
 #define TEST_THREAD_ARGS_N_THREADS 4
 
-void test_thread_arg_and_retval()
+static void test_thread_arg_and_retval(void)
 {
   thrd_t threads[TEST_THREAD_ARGS_N_THREADS];
   int ids[TEST_THREAD_ARGS_N_THREADS];
@@ -92,13 +92,13 @@ void test_thread_arg_and_retval()
 
 #ifndef NO_CT_TLS
 /* Thread function: Compile time thread-local storage */
-int thread_test_local_storage(void * aArg)
+static int thread_test_local_storage(void * aArg)
 {
   gLocalVar = rand();
   return 0;
 }
 
-void test_thread_local_storage()
+static void test_thread_local_storage(void)
 {
   thrd_t t1;
 
@@ -117,7 +117,7 @@ void test_thread_local_storage()
 
 #define TEST_THREAD_LOCK_ITERATIONS_PER_THREAD 10000
 
-int thread_lock(void * aArg)
+static int thread_lock(void * aArg)
 {
   int i;
   mtx_t try_mutex;
@@ -147,7 +147,7 @@ int thread_lock(void * aArg)
 
 #define TEST_MUTEX_LOCKING_N_THREADS 128
 
-void test_mutex_locking()
+static void test_mutex_locking(void)
 {
   thrd_t t[TEST_MUTEX_LOCKING_N_THREADS];
   int i;
@@ -173,7 +173,7 @@ struct TestMutexData {
   volatile int completed;
 };
 
-int test_mutex_recursive_cb(void* data)
+static int test_mutex_recursive_cb(void* data)
 {
   const int iterations = 10000;
   int i;
@@ -204,7 +204,7 @@ int test_mutex_recursive_cb(void* data)
 
 #define TEST_MUTEX_RECURSIVE_N_THREADS 128
 
-void test_mutex_recursive()
+static void test_mutex_recursive(void)
 {
   thrd_t t[TEST_MUTEX_RECURSIVE_N_THREADS];
   int i;
@@ -228,7 +228,7 @@ void test_mutex_recursive()
 }
 
 /* Thread function: Condition notifier */
-int thread_condition_notifier(void * aArg)
+static int thread_condition_notifier(void * aArg)
 {
   mtx_lock(&gMutex);
   -- gCount;
@@ -238,7 +238,7 @@ int thread_condition_notifier(void * aArg)
 }
 
 /* Thread function: Condition waiter */
-int thread_condition_waiter(void * aArg)
+static int thread_condition_waiter(void * aArg)
 {
   fflush(stdout);
   mtx_lock(&gMutex);
@@ -251,7 +251,7 @@ int thread_condition_waiter(void * aArg)
   return 0;
 }
 
-void test_condition_variables ()
+static void test_condition_variables (void)
 {
   thrd_t t1, t[40];
   int i;
@@ -281,14 +281,14 @@ void test_condition_variables ()
 }
 
 /* Thread function: Yield */
-int thread_yield(void * aArg)
+static int thread_yield(void * aArg)
 {
   /* Yield... */
   thrd_yield();
   return 0;
 }
 
-void test_yield ()
+static void test_yield (void)
 {
   thrd_t t[40];
   int i;
@@ -309,7 +309,7 @@ void test_yield ()
   }
 }
 
-int timespec_compare (struct timespec* a, struct timespec* b)
+static int timespec_compare (struct timespec* a, struct timespec* b)
 {
   if (a->tv_sec != b->tv_sec)
   {
@@ -325,9 +325,8 @@ int timespec_compare (struct timespec* a, struct timespec* b)
   }
 }
 
-void test_sleep()
+static void test_sleep(void)
 {
-  int i;
   struct timespec ts;
   struct timespec end_ts;
 
@@ -348,14 +347,14 @@ void test_sleep()
   assert(timespec_compare(&ts, &end_ts) <= 0);
 }
 
-void test_time()
+static void test_time(void)
 {
   struct timespec ts;
   clock_gettime(TIME_UTC, &ts);
 }
 
 /* Once function */
-void thread_once_func(void)
+static void thread_once_func(void)
 {
   mtx_lock(&gMutex);
   ++ gCount;
@@ -363,7 +362,7 @@ void thread_once_func(void)
 }
 
 /* Once thread function */
-int thread_once(void* data)
+static int thread_once(void* data)
 {
   int i;
 
@@ -377,7 +376,7 @@ int thread_once(void* data)
 
 #define TEST_ONCE_N_THREADS 16
 
-void test_once ()
+static void test_once (void)
 {
   const once_flag once_flag_init = ONCE_FLAG_INIT;
   thrd_t threads[TEST_ONCE_N_THREADS];
@@ -416,7 +415,7 @@ struct TestThreadSpecificData {
   int values_freed;
 } test_tss_data;
 
-void test_tss_free (void* val)
+static void test_tss_free (void* val)
 {
   mtx_lock(&(test_tss_data.mutex));
   test_tss_data.values_freed++;
@@ -424,10 +423,9 @@ void test_tss_free (void* val)
   free(val);
 }
 
-int test_tss_thread_func (void* data)
+static int test_tss_thread_func (void* data)
 {
   int* value = (int*)malloc(sizeof(int));
-  void* v = NULL;
 
   *value = rand();
   
@@ -445,7 +443,7 @@ int test_tss_thread_func (void* data)
 
 #define TEST_TSS_N_THREADS 256
 
-void test_tss ()
+static void test_tss (void)
 {
   thrd_t threads[TEST_TSS_N_THREADS];
   int* value = (int*)malloc(sizeof(int));
@@ -480,7 +478,7 @@ void test_tss ()
 
 
 
-const Test tests[] =
+const Test unit_tests[] =
 {
   { "thread-arg-and-retval", test_thread_arg_and_retval },
 #ifndef NO_CT_TLS
@@ -497,7 +495,7 @@ const Test tests[] =
   { NULL, }
 };
 
-void test_config_print_and_exit(const Test* tests, int argc, char** argv)
+static void test_config_print_and_exit(const Test* tests, int argc, char** argv)
 {
   int test_n;
 
@@ -515,7 +513,7 @@ void test_config_print_and_exit(const Test* tests, int argc, char** argv)
   fprintf (stdout, "  -h            Print this help screen and exit.\n");
 }
 
-void test_run(const Test* test, unsigned int seed)
+static void test_run(const Test* test, unsigned int seed)
 {
   int i;
   fputs("  ", stdout);
@@ -530,10 +528,9 @@ void test_run(const Test* test, unsigned int seed)
   fprintf(stdout, "OK\n");
 }
 
-int tests_run(const Test* tests, int argc, char** argv)
+static int tests_run(const Test* tests, int argc, char** argv)
 {
   int opt;
-  int optc = 0;
   unsigned long int seed;
   char* endptr;
   struct timespec tv;
@@ -551,7 +548,6 @@ int tests_run(const Test* tests, int argc, char** argv)
     {
       case 's':
         {
-          unsigned long int strtoul(const char *nptr, char **endptr, int base);
           seed = strtoul(optarg, &endptr, 0);
           if (*endptr != '\0' || seed > UINT_MAX)
           {
@@ -569,7 +565,7 @@ int tests_run(const Test* tests, int argc, char** argv)
     }
   }
 
-  fprintf(stdout, "Random seed: %u\n", seed);
+  fprintf(stdout, "Random seed: %lu\n", seed);
 
   if (optind < argc)
   {
@@ -612,7 +608,7 @@ int main(int argc, char** argv)
   mtx_init(&gMutex, mtx_plain);
   cnd_init(&gCond);
 
-  res = tests_run(tests, argc, argv);
+  res = tests_run(unit_tests, argc, argv);
 
   mtx_destroy(&gMutex);
   cnd_destroy(&gCond);
