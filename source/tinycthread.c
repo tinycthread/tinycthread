@@ -547,7 +547,7 @@ int thrd_sleep(const struct timespec *time_point, struct timespec *remaining)
 
   /* Get the current time */
   if (clock_gettime(TIME_UTC, &now) != 0)
-    return -2;  // FIXME: Some specific error code?
+    return -2;  /* FIXME: Some specific error code? */
 
 #if defined(_TTHREAD_WIN32_)
   /* Delta in milliseconds */
