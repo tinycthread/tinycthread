@@ -100,10 +100,21 @@ int mtx_lock(mtx_t *mtx)
 
 int mtx_timedlock(mtx_t *mtx, const struct timespec *ts)
 {
+#if defined(_TTHREAD_WIN32_)
   /* FIXME! */
   (void)mtx;
   (void)ts;
   return thrd_error;
+#else
+  switch (pthread_mutex_timedlock(mtx, ts)) {
+    case 0:
+      return thrd_success;
+    case ETIMEDOUT:
+      return thrd_timedout;
+    default:
+      return thrd_error;
+  }
+#endif
 }
 
 int mtx_trylock(mtx_t *mtx)
@@ -315,7 +326,7 @@ int cnd_timedwait(cnd_t *cond, mtx_t *mtx, const struct timespec *ts)
   ret = pthread_cond_timedwait(cond, mtx, ts);
   if (ret == ETIMEDOUT)
   {
-    return thrd_timeout;
+    return thrd_timedout;
   }
   return ret == 0 ? thrd_success : thrd_error;
 #endif
