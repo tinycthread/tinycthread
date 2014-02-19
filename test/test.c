@@ -230,6 +230,34 @@ static void test_mutex_recursive(void)
   assert (data.completed == TEST_MUTEX_RECURSIVE_N_THREADS);
 }
 
+static int timespec_compare (struct timespec* a, struct timespec* b)
+{
+  if (a->tv_sec != b->tv_sec)
+  {
+    return a->tv_sec - b->tv_sec;
+  }
+  else if (a->tv_nsec != b->tv_nsec)
+  {
+    return a->tv_nsec - b->tv_nsec;
+  }
+  else
+  {
+    return 0;
+  }
+}
+
+#define NSECS_PER_SECOND 1000000000
+static void timespec_add_nsec (struct timespec* ts, long tv_nsec)
+{
+  ts->tv_sec += tv_nsec / NSECS_PER_SECOND;
+  ts->tv_nsec += tv_nsec % NSECS_PER_SECOND;
+  if (ts->tv_nsec >= NSECS_PER_SECOND)
+  {
+    ts->tv_sec++;
+    ts->tv_nsec -= NSECS_PER_SECOND;
+  }
+}
+
 /* Thread function: Condition notifier */
 static int thread_condition_notifier(void * aArg)
 {
@@ -318,40 +346,19 @@ static void test_yield (void)
   }
 }
 
-static int timespec_compare (struct timespec* a, struct timespec* b)
-{
-  if (a->tv_sec != b->tv_sec)
-  {
-    return a->tv_sec - b->tv_sec;
-  }
-  else if (a->tv_nsec != b->tv_nsec)
-  {
-    return a->tv_nsec - b->tv_nsec;
-  }
-  else
-  {
-    return 0;
-  }
-}
-
 static void test_sleep(void)
 {
   struct timespec ts;
   struct timespec end_ts;
 
   /* Calculate current time + 100ms */
-  clock_gettime(TIME_UTC, &ts);
-  ts.tv_nsec += 100000000;
-  if (ts.tv_nsec >= 1000000000)
-    {
-      ts.tv_sec++;
-      ts.tv_nsec -= 1000000000;
-    }
+  timespec_get(&ts, TIME_UTC);
+  timespec_add_nsec(&ts, NSECS_PER_SECOND / 10);
 
   /* Sleep... */
   thrd_sleep(&ts, NULL);
 
-  clock_gettime(TIME_UTC, &end_ts);
+  timespec_get(&end_ts, TIME_UTC);
 
   assert(timespec_compare(&ts, &end_ts) <= 0);
 }
@@ -359,7 +366,7 @@ static void test_sleep(void)
 static void test_time(void)
 {
   struct timespec ts;
-  clock_gettime(TIME_UTC, &ts);
+  timespec_get(&ts, TIME_UTC);
 }
 
 /* Once function */
@@ -441,7 +448,7 @@ static int test_tss_thread_func (void* data)
   (void)data;
 
   *value = rand();
-  
+
   assert(tss_get(test_tss_data.key) == NULL);
   tss_set(test_tss_data.key, value);
   assert(tss_get(test_tss_data.key) == value);
@@ -552,7 +559,7 @@ static int tests_run(const Test* tests, int argc, char** argv)
   int test_n;
   int found;
 
-  clock_gettime(TIME_UTC, &tv);
+  timespec_get(&tv, TIME_UTC);
   srand(tv.tv_nsec);
   seed = rand();
 

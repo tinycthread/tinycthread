@@ -270,7 +270,7 @@ static int _cnd_timedwait_win32(cnd_t *cond, mtx_t *mtx, DWORD timeout)
   result = WaitForMultipleObjects(2, cond->mEvents, FALSE, timeout);
   if (result == WAIT_TIMEOUT)
   {
-    return thrd_timeout;
+    return thrd_timedout;
   }
   else if (result == (int)WAIT_FAILED)
   {
@@ -313,7 +313,7 @@ int cnd_timedwait(cnd_t *cond, mtx_t *mtx, const struct timespec *ts)
 {
 #if defined(_TTHREAD_WIN32_)
   struct timespec now;
-  if (clock_gettime(TIME_UTC, &now) == 0)
+  if (timespec_get(&now, TIME_UTC) == 0)
   {
     DWORD delta = (ts->tv_sec - now.tv_sec) * 1000 +
                   (ts->tv_nsec - now.tv_nsec + 500000) / 1000000;
@@ -564,7 +564,7 @@ int thrd_sleep(const struct timespec *time_point, struct timespec *remaining)
 #endif
 
   /* Get the current time */
-  if (clock_gettime(TIME_UTC, &now) != 0)
+  if (timespec_get(&now, TIME_UTC) != TIME_UTC)
     return -2;  /* FIXME: Some specific error code? */
 
 #if defined(_TTHREAD_WIN32_)
@@ -722,24 +722,31 @@ int tss_set(tss_t key, void *val)
   return thrd_success;
 }
 
-#if defined(_TTHREAD_EMULATE_CLOCK_GETTIME_)
-int _tthread_clock_gettime(clockid_t clk_id, struct timespec *ts)
+#if defined(_TTHREAD_EMULATE_TIMESPEC_GET_)
+int _tthread_timespec_get(struct timespec *ts, int base)
 {
-  (void)clk_id;
+  if (base != TIME_UTC)
+  {
+    return 0;
+  }
+
 #if defined(_TTHREAD_WIN32_)
   struct _timeb tb;
   _ftime(&tb);
   ts->tv_sec = (time_t)tb.time;
   ts->tv_nsec = 1000000L * (long)tb.millitm;
+#elif defined(CLOCK_REALTIME)
+  return (clock_gettime(CLOCK_REALTIME, ts) == 0) ? base : 0;
 #else
   struct timeval tv;
   gettimeofday(&tv, NULL);
   ts->tv_sec = (time_t)tv.tv_sec;
   ts->tv_nsec = 1000L * (long)tv.tv_usec;
 #endif
-  return 0;
+
+  return base;
 }
-#endif // _TTHREAD_EMULATE_CLOCK_GETTIME_
+#endif // _TTHREAD_EMULATE_TIMESPEC_GET_
 
 #if defined(_TTHREAD_WIN32_)
 void call_once(once_flag *flag, void (*func)(void))

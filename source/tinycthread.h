@@ -103,24 +103,13 @@ extern "C" {
   #define TTHREAD_NORETURN
 #endif
 
-/* Workaround for missing TIME_UTC: If time.h doesn't provide TIME_UTC,
-   it's quite likely that libc does not support it either. Hence, fall back to
-   the only other supported time specifier: CLOCK_REALTIME (and if that fails,
-   we're probably emulating clock_gettime anyway, so anything goes). */
+/* If TIME_UTC is missing, provide it and provide a wrapper for
+   timespec_get. */
 #ifndef TIME_UTC
-  #ifdef CLOCK_REALTIME
-    #define TIME_UTC CLOCK_REALTIME
-  #else
-    #define TIME_UTC 0
-  #endif
-#endif
-
-/* Workaround for missing clock_gettime (most Windows compilers, afaik) */
-#if defined(_TTHREAD_WIN32_) || defined(__APPLE_CC__)
-#define _TTHREAD_EMULATE_CLOCK_GETTIME_
+#define TIME_UTC 1
+#define _TTHREAD_EMULATE_TIMESPEC_GET_
 
 #if defined(_TTHREAD_WIN32_)
-/* Emulate struct timespec */
 struct _tthread_timespec {
   time_t tv_sec;
   long   tv_nsec;
@@ -128,20 +117,14 @@ struct _tthread_timespec {
 #define timespec _tthread_timespec
 #endif
 
-/* Emulate clockid_t */
-typedef int _tthread_clockid_t;
-#define clockid_t _tthread_clockid_t
-
-/* Emulate clock_gettime */
-int _tthread_clock_gettime(clockid_t clk_id, struct timespec *ts);
-#define clock_gettime _tthread_clock_gettime
+int _tthread_timespec_get(struct timespec *ts, int base);
+#define timespec_get _tthread_timespec_get
 #endif
-
 
 /** TinyCThread version (major number). */
 #define TINYCTHREAD_VERSION_MAJOR 1
 /** TinyCThread version (minor number). */
-#define TINYCTHREAD_VERSION_MINOR 1
+#define TINYCTHREAD_VERSION_MINOR 2
 /** TinyCThread version (full version). */
 #define TINYCTHREAD_VERSION (TINYCTHREAD_VERSION_MAJOR * 100 + TINYCTHREAD_VERSION_MINOR)
 
