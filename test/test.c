@@ -94,6 +94,7 @@ static void test_thread_arg_and_retval(void)
 /* Thread function: Compile time thread-local storage */
 static int thread_test_local_storage(void * aArg)
 {
+  (void)aArg;
   gLocalVar = rand();
   return 0;
 }
@@ -121,6 +122,8 @@ static int thread_lock(void * aArg)
 {
   int i;
   mtx_t try_mutex;
+
+  (void)aArg;
 
   for (i = 0; i < TEST_THREAD_LOCK_ITERATIONS_PER_THREAD; ++ i)
   {
@@ -230,6 +233,8 @@ static void test_mutex_recursive(void)
 /* Thread function: Condition notifier */
 static int thread_condition_notifier(void * aArg)
 {
+  (void)aArg;
+
   mtx_lock(&gMutex);
   -- gCount;
   cnd_broadcast(&gCond);
@@ -240,6 +245,8 @@ static int thread_condition_notifier(void * aArg)
 /* Thread function: Condition waiter */
 static int thread_condition_waiter(void * aArg)
 {
+  (void)aArg;
+
   fflush(stdout);
   mtx_lock(&gMutex);
   while(gCount > 0)
@@ -283,6 +290,8 @@ static void test_condition_variables (void)
 /* Thread function: Yield */
 static int thread_yield(void * aArg)
 {
+  (void)aArg;
+
   /* Yield... */
   thrd_yield();
   return 0;
@@ -366,6 +375,8 @@ static int thread_once(void* data)
 {
   int i;
 
+  (void)data;
+
   for (i = 0; i < 10000; i++)
   {
     call_once(&(onceFlags[i]), thread_once_func);
@@ -426,6 +437,8 @@ static void test_tss_free (void* val)
 static int test_tss_thread_func (void* data)
 {
   int* value = (int*)malloc(sizeof(int));
+
+  (void)data;
 
   *value = rand();
   
@@ -498,6 +511,8 @@ const Test unit_tests[] =
 static void test_config_print_and_exit(const Test* tests, int argc, char** argv)
 {
   int test_n;
+
+  (void)argc;
 
   fprintf (stdout, "Usage: %s [OPTION]... [TEST]...\n", argv[0]);
   fprintf (stdout, "Tests for TinyCThread.\n");

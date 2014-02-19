@@ -27,6 +27,8 @@ freely, subject to the following restrictions:
 /* This is the child thread function */
 int HelloThread(void * aArg)
 {
+  (void)aArg;
+
   printf("Hello world!\n");
   return 0;
 }
