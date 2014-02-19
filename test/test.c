@@ -258,6 +258,59 @@ static void timespec_add_nsec (struct timespec* ts, long tv_nsec)
   }
 }
 
+struct TestMutexTimedData {
+  mtx_t mutex;
+  struct timespec ts[2];
+};
+
+static int test_mutex_timed_thread_func(void* arg)
+{
+  int ret;
+  struct timespec ts;
+  struct TestMutexTimedData* data = (struct TestMutexTimedData*) arg;
+
+  ret = mtx_timedlock(&(data->mutex), &(data->ts[0]));
+  assert (ret == thrd_timedout);
+
+  timespec_get (&ts, TIME_UTC);
+  ret = timespec_compare(&ts, &(data->ts[0]));
+  assert (ret >= 0);
+  ret = timespec_compare(&ts, &(data->ts[1]));
+  assert (ret < 0);
+
+  ret = mtx_lock(&(data->mutex));
+  assert (ret == thrd_success);
+
+  timespec_get (&ts, TIME_UTC);
+  ret = timespec_compare(&ts, &(data->ts[1]));
+  assert (ret >= 0);
+
+  mtx_unlock(&(data->mutex));
+
+  return 0;
+}
+
+static void test_mutex_timed(void)
+{
+  struct TestMutexTimedData data;
+  thrd_t thread;
+
+  mtx_init(&(data.mutex), mtx_timed);
+  mtx_lock(&(data.mutex));
+
+  timespec_get (&(data.ts[0]), TIME_UTC);
+  timespec_add_nsec(&(data.ts[0]), NSECS_PER_SECOND / 10);
+  data.ts[1] = data.ts[0];
+  timespec_add_nsec(&(data.ts[1]), NSECS_PER_SECOND / 10);
+
+  thrd_create(&thread, test_mutex_timed_thread_func, &data);
+
+  thrd_sleep(&(data.ts[1]), NULL);
+  mtx_unlock(&(data.mutex));
+
+  thrd_join(thread, NULL);
+}
+
 /* Thread function: Condition notifier */
 static int thread_condition_notifier(void * aArg)
 {
@@ -512,6 +565,7 @@ const Test unit_tests[] =
   { "time", test_time },
   { "once", test_once },
   { "thread-specific-storage", test_tss },
+  { "mutex-timed", test_mutex_timed },
   { NULL, }
 };
 

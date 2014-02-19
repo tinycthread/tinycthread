@@ -78,6 +78,8 @@ all: hello$(EXE) test$(EXE)
 clean:
 	$(RM) hello$(EXE) test$(EXE) $(HELLO_OBJS) $(TEST_OBJS) $(TINYCTHREAD_OBJS)
 
+check: all
+	./test$(EXE)
 
 test$(EXE): $(TEST_OBJS) $(TINYCTHREAD_OBJS)
 	$(CC) $(LFLAGS) -o $@ $(TEST_OBJS) $(TINYCTHREAD_OBJS) $(LIBS)
