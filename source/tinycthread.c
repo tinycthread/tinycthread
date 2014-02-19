@@ -368,16 +368,23 @@ static void _tinycthread_tss_cleanup () {
 
 static void NTAPI _tinycthread_tss_callback(PVOID h, DWORD dwReason, PVOID pv)
 {
+  (void)h;
+  (void)pv;
+
   if (_tinycthread_tss_head != NULL && (dwReason == DLL_THREAD_DETACH || dwReason == DLL_PROCESS_DETACH))
   {
     _tinycthread_tss_cleanup();
   }
 }
 
+#if defined(_MSC_VER)
 #pragma data_seg(".CRT$XLB")
 PIMAGE_TLS_CALLBACK p_thread_callback = _tinycthread_tss_callback;
 #pragma data_seg()
+#else
+PIMAGE_TLS_CALLBACK p_thread_callback __attribute__((section(".CRT$XLB"))) = _tinycthread_tss_callback;
 #endif
+#endif /* defined(_TTHREAD_WIN32_) */
 
 /** Information to pass to the new thread (what to run). */
 typedef struct {
@@ -595,8 +602,6 @@ void thrd_yield(void)
 int tss_create(tss_t *key, tss_dtor_t dtor)
 {
 #if defined(_TTHREAD_WIN32_)
-  struct TinyCThreadTSSData* data = NULL;
-
   *key = TlsAlloc();
   if (*key == TLS_OUT_OF_INDEXES)
   {
@@ -709,6 +714,7 @@ int tss_set(tss_t key, void *val)
 #if defined(_TTHREAD_EMULATE_CLOCK_GETTIME_)
 int _tthread_clock_gettime(clockid_t clk_id, struct timespec *ts)
 {
+  (void)clk_id;
 #if defined(_TTHREAD_WIN32_)
   struct _timeb tb;
   _ftime(&tb);
