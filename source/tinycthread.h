@@ -171,10 +171,9 @@ int _tthread_timespec_get(struct timespec *ts, int base);
 #define thrd_nomem    4 /**< The requested operation failed because it was unable to allocate memory */
 
 /* Mutex types */
-#define mtx_plain     1
-#define mtx_timed     2
-#define mtx_try       4
-#define mtx_recursive 8
+#define mtx_plain     0
+#define mtx_timed     1
+#define mtx_recursive 2
 
 /* Mutex */
 #if defined(_TTHREAD_WIN32_)

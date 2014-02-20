@@ -133,7 +133,7 @@ static int thread_lock(void * aArg)
     mtx_unlock(&gMutex);
   }
 
-  mtx_init(&try_mutex, mtx_try);
+  mtx_init(&try_mutex, mtx_plain);
 
   mtx_lock(&gMutex);
   for (i = 0; i < TEST_THREAD_LOCK_ITERATIONS_PER_THREAD; ++ i)
