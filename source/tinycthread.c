@@ -58,7 +58,19 @@ int mtx_init(mtx_t *mtx, int type)
 #if defined(_TTHREAD_WIN32_)
   mtx->mAlreadyLocked = FALSE;
   mtx->mRecursive = type & mtx_recursive;
-  InitializeCriticalSection(&mtx->mHandle);
+  mtx->mTimed = type & mtx_timed;
+  if (!mtx->mTimed)
+  {
+    InitializeCriticalSection(&(mtx->mHandle.cs));
+  }
+  else
+  {
+    mtx->mHandle.mut = CreateMutex(NULL, FALSE, NULL);
+    if (mtx->mHandle.mut == NULL)
+    {
+      return thrd_error;
+    }
+  }
   return thrd_success;
 #else
   int ret;
@@ -77,7 +89,14 @@ int mtx_init(mtx_t *mtx, int type)
 void mtx_destroy(mtx_t *mtx)
 {
 #if defined(_TTHREAD_WIN32_)
-  DeleteCriticalSection(&mtx->mHandle);
+  if (!mtx->mTimed)
+  {
+    DeleteCriticalSection(&(mtx->mHandle.cs));
+  }
+  else
+  {
+    CloseHandle(mtx->mHandle.mut);
+  }
 #else
   pthread_mutex_destroy(mtx);
 #endif
@@ -86,10 +105,25 @@ void mtx_destroy(mtx_t *mtx)
 int mtx_lock(mtx_t *mtx)
 {
 #if defined(_TTHREAD_WIN32_)
-  EnterCriticalSection(&mtx->mHandle);
+  if (!mtx->mTimed)
+  {
+    EnterCriticalSection(&(mtx->mHandle.cs));
+  }
+  else
+  {
+    switch (WaitForSingleObject(mtx->mHandle.mut, INFINITE))
+    {
+      case WAIT_OBJECT_0:
+        break;
+      case WAIT_ABANDONED:
+      default:
+        return thrd_error;
+    }
+  }
+
   if (!mtx->mRecursive)
   {
-    while(mtx->mAlreadyLocked) Sleep(1000); /* Simulate deadlock... */
+    while(mtx->mAlreadyLocked) Sleep(1); /* Simulate deadlock... */
     mtx->mAlreadyLocked = TRUE;
   }
   return thrd_success;
@@ -101,10 +135,47 @@ int mtx_lock(mtx_t *mtx)
 int mtx_timedlock(mtx_t *mtx, const struct timespec *ts)
 {
 #if defined(_TTHREAD_WIN32_)
-  /* FIXME! */
-  (void)mtx;
-  (void)ts;
-  return thrd_error;
+  struct timespec current_ts;
+  DWORD timeoutMs;
+
+  if (!mtx->mTimed)
+  {
+    return thrd_error;
+  }
+
+  timespec_get(&current_ts, TIME_UTC);
+
+  if ((current_ts.tv_sec > ts->tv_sec) || ((current_ts.tv_sec == ts->tv_sec) && (current_ts.tv_nsec >= ts->tv_nsec)))
+  {
+    timeoutMs = 0;
+  }
+  else
+  {
+    timeoutMs  = (ts->tv_sec  - current_ts.tv_sec)  * 1000;
+    timeoutMs += (ts->tv_nsec - current_ts.tv_nsec) / 1000000;
+    timeoutMs += 1;
+  }
+
+  /* TODO: the timeout for WaitForSingleObject doesn't include time
+     while the computer is asleep. */
+  switch (WaitForSingleObject(mtx->mHandle.mut, timeoutMs))
+  {
+    case WAIT_OBJECT_0:
+      break;
+    case WAIT_TIMEOUT:
+      return thrd_timedout;
+    case WAIT_ABANDONED:
+    default:
+      return thrd_error;
+  }
+
+  if (!mtx->mRecursive)
+  {
+    while(mtx->mAlreadyLocked) Sleep(1); /* Simulate deadlock... */
+    mtx->mAlreadyLocked = TRUE;
+  }
+
+  return thrd_success;
 #else
   switch (pthread_mutex_timedlock(mtx, ts)) {
     case 0:
@@ -120,12 +191,23 @@ int mtx_timedlock(mtx_t *mtx, const struct timespec *ts)
 int mtx_trylock(mtx_t *mtx)
 {
 #if defined(_TTHREAD_WIN32_)
-  int ret = TryEnterCriticalSection(&mtx->mHandle) ? thrd_success : thrd_busy;
+  int ret;
+
+
+  if (!mtx->mTimed)
+  {
+    ret = TryEnterCriticalSection(&(mtx->mHandle.cs)) ? thrd_success : thrd_busy;
+  }
+  else
+  {
+    ret = (WaitForSingleObject(mtx->mHandle.mut, 0) == WAIT_OBJECT_0) ? thrd_success : thrd_busy;
+  }
+
   if ((!mtx->mRecursive) && (ret == thrd_success))
   {
     if (mtx->mAlreadyLocked)
     {
-      LeaveCriticalSection(&mtx->mHandle);
+      LeaveCriticalSection(&(mtx->mHandle.cs));
       ret = thrd_busy;
     }
     else
@@ -143,7 +225,17 @@ int mtx_unlock(mtx_t *mtx)
 {
 #if defined(_TTHREAD_WIN32_)
   mtx->mAlreadyLocked = FALSE;
-  LeaveCriticalSection(&mtx->mHandle);
+  if (!mtx->mTimed)
+  {
+    LeaveCriticalSection(&(mtx->mHandle.cs));
+  }
+  else
+  {
+    if (!ReleaseMutex(mtx->mHandle.mut))
+    {
+      return thrd_error;
+    }
+  }
   return thrd_success;
 #else
   return pthread_mutex_unlock(mtx) == 0 ? thrd_success : thrd_error;;

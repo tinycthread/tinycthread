@@ -178,9 +178,13 @@ int _tthread_timespec_get(struct timespec *ts, int base);
 /* Mutex */
 #if defined(_TTHREAD_WIN32_)
 typedef struct {
-  CRITICAL_SECTION mHandle;   /* Critical section handle */
+  union {
+    CRITICAL_SECTION cs;      /* Critical section handle (used for non-timed mutexes) */
+    HANDLE mut;               /* Mutex handle (used for timed mutex) */
+  } mHandle;                  /* Mutex handle */
   int mAlreadyLocked;         /* TRUE if the mutex is already locked */
   int mRecursive;             /* TRUE if the mutex is recursive */
+  int mTimed;                 /* TRUE if the mutex is timed */
 } mtx_t;
 #else
 typedef pthread_mutex_t mtx_t;
