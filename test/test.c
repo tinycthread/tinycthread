@@ -46,6 +46,8 @@ freely, subject to the following restrictions:
 _Thread_local int gLocalVar;
 #endif
 
+static void test_sleep(void);
+
 /* Mutex + global count variable */
 mtx_t gMutex;
 int gCount;
@@ -311,6 +313,22 @@ static void test_mutex_timed(void)
   thrd_join(thread, NULL);
 }
 
+static int test_thrd_exit_func(void* arg)
+{
+  test_sleep();
+  thrd_exit(2);
+  return 1;
+}
+
+static void test_thrd_exit(void)
+{
+  thrd_t thread;
+  int res;
+  thrd_create(&thread, test_thrd_exit_func, NULL);
+  assert(thrd_join(thread, &res));
+  assert(res == 2);
+}
+
 /* Thread function: Condition notifier */
 static int thread_condition_notifier(void * aArg)
 {
@@ -566,6 +584,7 @@ const Test unit_tests[] =
   { "once", test_once },
   { "thread-specific-storage", test_tss },
   { "mutex-timed", test_mutex_timed },
+  { "thread-exit", test_thrd_exit },
   { NULL, }
 };
 
