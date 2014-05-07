@@ -497,7 +497,7 @@ typedef struct {
 
 /* Thread wrapper function. */
 #if defined(_TTHREAD_WIN32_)
-static unsigned WINAPI _thrd_wrapper_function(void * aArg)
+static DWORD WINAPI _thrd_wrapper_function(LPVOID aArg)
 #elif defined(_TTHREAD_POSIX_)
 static void * _thrd_wrapper_function(void * aArg)
 #endif
@@ -551,7 +551,7 @@ int thrd_create(thrd_t *thr, thrd_start_t func, void *arg)
 
   /* Create the thread */
 #if defined(_TTHREAD_WIN32_)
-  *thr = (HANDLE)_beginthreadex(NULL, 0, _thrd_wrapper_function, (void *)ti, 0, NULL);
+  *thr = CreateThread(NULL, 0, _thrd_wrapper_function, (LPVOID) ti, 0, NULL);
 #elif defined(_TTHREAD_POSIX_)
   if(pthread_create(thr, NULL, _thrd_wrapper_function, (void *)ti) != 0)
   {
