@@ -628,6 +628,7 @@ int thrd_join(thrd_t thr, int *res)
     DWORD dwRes;
     GetExitCodeThread(thr, &dwRes);
     *res = dwRes;
+    CloseHandle(thr);
   }
 #elif defined(_TTHREAD_POSIX_)
   void *pres;
