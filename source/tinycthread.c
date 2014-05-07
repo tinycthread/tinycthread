@@ -580,9 +580,12 @@ thrd_t thrd_current(void)
 
 int thrd_detach(thrd_t thr)
 {
-  /* FIXME! */
-  (void)thr;
-  return thrd_error;
+#if defined(_TTHREAD_WIN32_)
+  /* https://stackoverflow.com/questions/12744324/how-to-detach-a-thread-on-windows-c#answer-12746081 */
+  return CloseHandle(thr) != 0 ? thrd_success : thrd_error;
+#else
+  return pthread_detach(thr) == 0 ? thrd_success : thrd_error;
+#endif
 }
 
 int thrd_equal(thrd_t thr0, thrd_t thr1)
@@ -877,4 +880,3 @@ void call_once(once_flag *flag, void (*func)(void))
 #ifdef __cplusplus
 }
 #endif
-
