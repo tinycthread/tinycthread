@@ -822,20 +822,24 @@ int tss_set(tss_t key, void *val)
 #if defined(_TTHREAD_EMULATE_TIMESPEC_GET_)
 int _tthread_timespec_get(struct timespec *ts, int base)
 {
+#if defined(_TTHREAD_WIN32_)
+  struct _timeb tb;
+#else
+  struct timeval tv;
+#endif
+
   if (base != TIME_UTC)
   {
     return 0;
   }
 
 #if defined(_TTHREAD_WIN32_)
-  struct _timeb tb;
   _ftime(&tb);
   ts->tv_sec = (time_t)tb.time;
   ts->tv_nsec = 1000000L * (long)tb.millitm;
 #elif defined(CLOCK_REALTIME)
   return (clock_gettime(CLOCK_REALTIME, ts) == 0) ? base : 0;
 #else
-  struct timeval tv;
   gettimeofday(&tv, NULL);
   ts->tv_sec = (time_t)tv.tv_sec;
   ts->tv_nsec = 1000L * (long)tv.tv_usec;
@@ -843,7 +847,7 @@ int _tthread_timespec_get(struct timespec *ts, int base)
 
   return base;
 }
-#endif // _TTHREAD_EMULATE_TIMESPEC_GET_
+#endif /* _TTHREAD_EMULATE_TIMESPEC_GET_ */
 
 #if defined(_TTHREAD_WIN32_)
 void call_once(once_flag *flag, void (*func)(void))

@@ -31,7 +31,7 @@ endif
 # Compiler settings
 CC = gcc
 ifeq ($(findstring gcc, $(CC)), gcc)
-CFLAGS = -W -std=c99 -pedantic -O3 -c -I../source
+CFLAGS = -W -std=c89 -pedantic -O3 -c -I../source
 else
 CFLAGS = -W -O3 -c -I../source
 endif
