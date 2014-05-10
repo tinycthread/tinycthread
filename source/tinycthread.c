@@ -450,7 +450,7 @@ static void _tinycthread_tss_cleanup () {
       if (data->value != NULL)
       {
         value = data->value;
-		data->value = NULL;
+        data->value = NULL;
 
         if (_tinycthread_tss_dtors[data->key] != NULL)
         {
@@ -461,9 +461,10 @@ static void _tinycthread_tss_cleanup () {
     }
   }
 
-  for (data = _tinycthread_tss_head ; data != NULL ; data = data->next)
-  {
-    free (data);
+  while (_tinycthread_tss_head != NULL) {
+    data = _tinycthread_tss_head->next;
+    free (_tinycthread_tss_head);
+    _tinycthread_tss_head = data;
   }
   _tinycthread_tss_head = NULL;
   _tinycthread_tss_tail = NULL;
