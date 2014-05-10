@@ -345,7 +345,8 @@ int thrd_create(thrd_t *thr, thrd_start_t func, void *arg);
 */
 thrd_t thrd_current(void);
 
-/** NOT YET IMPLEMENTED.
+/** Dispose of any resources allocated to the thread when that thread exits.
+ * @return thrd_success, or thrd_error on error
 */
 int thrd_detach(thrd_t thr);
 
