@@ -651,51 +651,38 @@ int thrd_join(thrd_t thr, int *res)
   return thrd_success;
 }
 
-int thrd_sleep(const struct timespec *time_point, struct timespec *remaining)
+int thrd_sleep(const struct timespec *duration, struct timespec *remaining)
 {
-  struct timespec now;
-#if defined(_TTHREAD_WIN32_)
-  DWORD delta;
+#if !defined(_TTHREAD_WIN32_)
+  return nanosleep(duration, remaining);
 #else
-  long delta;
-#endif
+  struct timespec start;
+  DWORD t;
 
-  /* Get the current time */
-  if (timespec_get(&now, TIME_UTC) != TIME_UTC)
-    return -2;  /* FIXME: Some specific error code? */
+  timespec_get(&start, TIME_UTC);
 
-#if defined(_TTHREAD_WIN32_)
-  /* Delta in milliseconds */
-  delta = (time_point->tv_sec - now.tv_sec) * 1000 +
-          (time_point->tv_nsec - now.tv_nsec + 500000) / 1000000;
-  if (delta > 0)
-  {
-    Sleep(delta);
-  }
-#else
-  /* Delta in microseconds */
-  delta = (time_point->tv_sec - now.tv_sec) * 1000000L +
-          (time_point->tv_nsec - now.tv_nsec + 500L) / 1000L;
+  t = SleepEx(duration->tv_sec * 1000 +
+              duration->tv_nsec / 1000000 +
+              (((duration->tv_nsec % 1000000) == 0) ? 0 : 1),
+              TRUE);
 
-  /* On some systems, the usleep argument must be < 1000000 */
-  while (delta > 999999L)
-  {
-    usleep(999999);
-    delta -= 999999L;
+  if (t == 0) {
+    return 0;
+  } else if (remaining != NULL) {
+    timespec_get(remaining, TIME_UTC);
+    remaining->tv_sec -= start.tv_sec;
+    remaining->tv_nsec -= start.tv_nsec;
+    if (remaining->tv_nsec < 0)
+    {
+      remaining->tv_nsec += 1000000000;
+      remaining->tv_sec -= 1;
+    }
+  } else {
+    return -1;
   }
-  if (delta > 0L)
-  {
-    usleep((useconds_t)delta);
-  }
-#endif
 
-  /* We don't support waking up prematurely (yet) */
-  if (remaining)
-  {
-    remaining->tv_sec = 0;
-    remaining->tv_nsec = 0;
-  }
   return 0;
+#endif
 }
 
 void thrd_yield(void)

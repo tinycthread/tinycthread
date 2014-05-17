@@ -262,7 +262,10 @@ static void timespec_add_nsec (struct timespec* ts, long tv_nsec)
 
 struct TestMutexTimedData {
   mtx_t mutex;
-  struct timespec ts[2];
+  struct timespec start;
+  struct timespec timeout;
+  struct timespec end;
+  struct timespec upper;
 };
 
 static int test_mutex_timed_thread_func(void* arg)
@@ -271,21 +274,26 @@ static int test_mutex_timed_thread_func(void* arg)
   struct timespec ts;
   struct TestMutexTimedData* data = (struct TestMutexTimedData*) arg;
 
-  ret = mtx_timedlock(&(data->mutex), &(data->ts[0]));
+  ret = mtx_timedlock(&(data->mutex), &(data->timeout));
   assert (ret == thrd_timedout);
 
-  timespec_get (&ts, TIME_UTC);
-  ret = timespec_compare(&ts, &(data->ts[0]));
+  timespec_get(&ts, TIME_UTC);
+  ret = timespec_compare(&ts, &(data->start));
   assert (ret >= 0);
-  ret = timespec_compare(&ts, &(data->ts[1]));
+  ret = timespec_compare(&ts, &(data->timeout));
+  assert (ret >= 0);
+  ret = timespec_compare(&ts, &(data->end));
   assert (ret < 0);
 
   ret = mtx_lock(&(data->mutex));
   assert (ret == thrd_success);
 
-  timespec_get (&ts, TIME_UTC);
-  ret = timespec_compare(&ts, &(data->ts[1]));
+  timespec_get(&ts, TIME_UTC);
+  ret = timespec_compare(&ts, &(data->end));
   assert (ret >= 0);
+
+  ret = timespec_compare(&ts, &(data->upper));
+  assert (ret < 0);
 
   mtx_unlock(&(data->mutex));
 
@@ -296,18 +304,29 @@ static void test_mutex_timed(void)
 {
   struct TestMutexTimedData data;
   thrd_t thread;
+  struct timespec interval = { 0, };
+  struct timespec start;
+  struct timespec end;
+
+  interval.tv_sec = 0;
+  interval.tv_nsec = (NSECS_PER_SECOND / 10) * 2;
 
   mtx_init(&(data.mutex), mtx_timed);
   mtx_lock(&(data.mutex));
 
-  timespec_get (&(data.ts[0]), TIME_UTC);
-  timespec_add_nsec(&(data.ts[0]), NSECS_PER_SECOND / 10);
-  data.ts[1] = data.ts[0];
-  timespec_add_nsec(&(data.ts[1]), NSECS_PER_SECOND / 10);
+  timespec_get(&(data.start), TIME_UTC);
+  data.timeout = data.start;
+  timespec_add_nsec(&(data.timeout), NSECS_PER_SECOND / 10);
+  data.end = data.timeout;
+  timespec_add_nsec(&(data.end), NSECS_PER_SECOND / 10);
+  data.upper = data.end;
+  timespec_add_nsec(&(data.upper), NSECS_PER_SECOND / 10);
 
   thrd_create(&thread, test_mutex_timed_thread_func, &data);
 
-  thrd_sleep(&(data.ts[1]), NULL);
+  timespec_get(&start, TIME_UTC);
+  assert (thrd_sleep(&interval, &interval) == 0);
+  timespec_get(&end, TIME_UTC);
   mtx_unlock(&(data.mutex));
 
   thrd_join(thread, NULL);
@@ -420,14 +439,18 @@ static void test_yield (void)
 static void test_sleep(void)
 {
   struct timespec ts;
+  struct timespec interval;
   struct timespec end_ts;
+
+  interval.tv_sec = 0;
+  interval.tv_nsec = NSECS_PER_SECOND / 10;
 
   /* Calculate current time + 100ms */
   timespec_get(&ts, TIME_UTC);
   timespec_add_nsec(&ts, NSECS_PER_SECOND / 10);
 
   /* Sleep... */
-  thrd_sleep(&ts, NULL);
+  thrd_sleep(&interval, NULL);
 
   timespec_get(&end_ts, TIME_UTC);
 

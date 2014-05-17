@@ -375,15 +375,16 @@ int thrd_join(thrd_t thr, int *res);
 
 /** Put the calling thread to sleep.
 * Suspend execution of the calling thread.
-* @param time_point A point in time at which the thread will resume (absolute time).
-* @param remaining If non-NULL, this parameter will hold the remaining time until
-*                  time_point upon return. This will typically be zero, but if
-*                  the thread was woken up by a signal that is not ignored before
-*                  time_point was reached @c remaining will hold a positive
-*                  time.
-* @return 0 (zero) on successful sleep, or -1 if an interrupt occurred.
+* @param duration  Interval to sleep for
+* @param remaining If non-NULL, this parameter will hold the remaining
+*                  time until time_point upon return. This will
+*                  typically be zero, but if the thread was woken up
+*                  by a signal that is not ignored before duration was
+*                  reached @c remaining will hold a positive time.
+* @return 0 (zero) on successful sleep, -1 if an interrupt occurred,
+*         or a negative value if the operation fails.
 */
-int thrd_sleep(const struct timespec *time_point, struct timespec *remaining);
+int thrd_sleep(const struct timespec *duration, struct timespec *remaining);
 
 /** Yield execution to another thread.
 * Permit other threads to run, even if the current thread would ordinarily
