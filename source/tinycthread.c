@@ -620,17 +620,18 @@ void thrd_exit(int res)
 int thrd_join(thrd_t thr, int *res)
 {
 #if defined(_TTHREAD_WIN32_)
+  DWORD dwRes;
+
   if (WaitForSingleObject(thr, INFINITE) == WAIT_FAILED)
   {
     return thrd_error;
   }
   if (res != NULL)
   {
-    DWORD dwRes;
     GetExitCodeThread(thr, &dwRes);
     *res = dwRes;
-    CloseHandle(thr);
   }
+  CloseHandle(thr);
 #elif defined(_TTHREAD_POSIX_)
   void *pres;
   int ires = 0;
