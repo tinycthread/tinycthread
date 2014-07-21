@@ -97,8 +97,10 @@ extern "C" {
 #endif
 
 /* Compiler-specific information */
-#if defined(__GNUC__)
-  #define TTHREAD_NORETURN __attribute__((noreturn))
+#if __STDC_VERSION__ >= 201112L
+  #define TTHREAD_NORETURN _Noreturn
+#elif defined(__GNUC__)
+  #define TTHREAD_NORETURN __attribute__((__noreturn__))
 #else
   #define TTHREAD_NORETURN
 #endif
@@ -360,7 +362,7 @@ int thrd_equal(thrd_t thr0, thrd_t thr1);
 /** Terminate execution of the calling thread.
 * @param res Result code of the calling thread.
 */
-void thrd_exit(int res) TTHREAD_NORETURN;
+TTHREAD_NORETURN void thrd_exit(int res);
 
 /** Wait for a thread to terminate.
 * The function joins the given thread with the current thread by blocking
