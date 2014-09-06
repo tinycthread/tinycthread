@@ -378,7 +378,7 @@ int cnd_broadcast(cnd_t *cond)
 
   return thrd_success;
 #else
-  return pthread_cond_signal(cond) == 0 ? thrd_success : thrd_error;
+  return pthread_cond_broadcast(cond) == 0 ? thrd_success : thrd_error;
 #endif
 }
 
