@@ -1,6 +1,6 @@
 /* -*- mode: c; tab-width: 2; indent-tabs-mode: nil; -*-
 Copyright (c) 2012 Marcus Geelnard
-Copyright (c) 2013 Evan Nemerson
+Copyright (c) 2013-2014 Evan Nemerson
 
 This software is provided 'as-is', without any express or implied
 warranty. In no event will the authors be held liable for any damages
@@ -588,6 +588,8 @@ static void test_tss (void)
   tss_delete(test_tss_data.key);
   assert(tss_get(test_tss_data.key) == NULL);
   assert(test_tss_data.values_freed == TEST_TSS_N_THREADS);
+
+  free(value);
 }
 
 
