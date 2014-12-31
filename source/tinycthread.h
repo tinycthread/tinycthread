@@ -198,10 +198,8 @@ typedef pthread_mutex_t mtx_t;
 * @param type Bit-mask that must have one of the following six values:
 *   @li @c mtx_plain for a simple non-recursive mutex
 *   @li @c mtx_timed for a non-recursive mutex that supports timeout
-*   @li @c mtx_try for a non-recursive mutex that supports test and return
 *   @li @c mtx_plain | @c mtx_recursive (same as @c mtx_plain, but recursive)
 *   @li @c mtx_timed | @c mtx_recursive (same as @c mtx_timed, but recursive)
-*   @li @c mtx_try | @c mtx_recursive (same as @c mtx_try, but recursive)
 * @return @ref thrd_success on success, or @ref thrd_error if the request could
 * not be honored.
 */
