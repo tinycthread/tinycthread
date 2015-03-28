@@ -173,6 +173,12 @@ int _tthread_timespec_get(struct timespec *ts, int base);
 #define thrd_busy     3 /**< The requested operation failed because a tesource requested by a test and return function is already in use */
 #define thrd_nomem    4 /**< The requested operation failed because it was unable to allocate memory */
 
+#define THREAD_STRERROR(err) \
+    (err == thrd_error ? "The requested operation failed" : \
+    (err == thrd_timedout ? "The time specified in the call was reached without acquiring the requested resource" : \
+    (err == thrd_busy ? "The requested operation failed because a return function is already in use" : \
+    (err == thrd_nomem ? "The requested operation failed because it was unable to allocate memory" : "The requested operation succeeded"))))
+
 /* Mutex types */
 #define mtx_plain     0
 #define mtx_timed     1
