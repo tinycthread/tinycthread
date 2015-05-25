@@ -667,8 +667,19 @@ int thrd_join(thrd_t thr, int *res)
   }
   if (res != NULL)
   {
-    GetExitCodeThread(thr, &dwRes);
-    *res = dwRes;
+    if (GetExitCodeThread(thr, &dwRes) != 0)
+    {
+      //If the function succeeds, the return value is nonzero.
+      *res = dwRes;
+    }
+    else
+    {
+      //If the function fails, the return value is zero.
+      //To get extended error information, call GetLastError.
+      //TODO: What is the best result?
+      dwRes = GetLastError();
+      *res = dwRes;
+    }
   }
   CloseHandle(thr);
 #elif defined(_TTHREAD_POSIX_)
