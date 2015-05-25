@@ -232,6 +232,8 @@ int mtx_trylock(mtx_t *mtx)
 #if defined(_TTHREAD_WIN32_)
   int ret;
 
+  //TODO can we supress this error?
+  //warning C26115: Failing to release lock 'mtx->mHandle.cs' in function 'mtx_trylock'.
 
   if (!mtx->mTimed)
   {
@@ -777,6 +779,8 @@ void tss_delete(tss_t key)
     else
     {
       prev = _tinycthread_tss_head;
+      //TODO: How to know that _tinycthread_tss_head is not null?
+      //This error was reported by visual studio code analysis
       while (prev->next != data)
       {
         prev = prev->next;
