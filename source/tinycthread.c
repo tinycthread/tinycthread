@@ -232,7 +232,6 @@ int mtx_trylock(mtx_t *mtx)
 #if defined(_TTHREAD_WIN32_)
   int ret;
 
-
   if (!mtx->mTimed)
   {
     ret = TryEnterCriticalSection(&(mtx->mHandle.cs)) ? thrd_success : thrd_busy;
@@ -667,8 +666,14 @@ int thrd_join(thrd_t thr, int *res)
   }
   if (res != NULL)
   {
-    GetExitCodeThread(thr, &dwRes);
-    *res = dwRes;
+    if (GetExitCodeThread(thr, &dwRes) != 0)
+    {
+      *res = dwRes;
+    }
+    else
+    {
+      return thrd_error;
+    }
   }
   CloseHandle(thr);
 #elif defined(_TTHREAD_POSIX_)
@@ -766,9 +771,12 @@ void tss_delete(tss_t key)
     else
     {
       prev = _tinycthread_tss_head;
-      while (prev->next != data)
+      if (prev != NULL)
       {
-        prev = prev->next;
+        while (prev->next != data)
+        {
+          prev = prev->next;
+        }
       }
     }
 
