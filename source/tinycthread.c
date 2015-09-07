@@ -443,7 +443,7 @@ int cnd_timedwait(cnd_t *cond, mtx_t *mtx, const struct timespec *ts)
 {
 #if defined(_TTHREAD_WIN32_)
   struct timespec now;
-  if (timespec_get(&now, TIME_UTC) == 0)
+  if (timespec_get(&now, TIME_UTC) == TIME_UTC)
   {
     DWORD delta = (DWORD)((ts->tv_sec - now.tv_sec) * 1000 +
                   (ts->tv_nsec - now.tv_nsec + 500000) / 1000000);
