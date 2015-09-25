@@ -445,8 +445,10 @@ int cnd_timedwait(cnd_t *cond, mtx_t *mtx, const struct timespec *ts)
   struct timespec now;
   if (timespec_get(&now, TIME_UTC) == TIME_UTC)
   {
-    DWORD delta = (DWORD)((ts->tv_sec - now.tv_sec) * 1000 +
-                  (ts->tv_nsec - now.tv_nsec + 500000) / 1000000);
+    unsigned long long nowInMilliseconds = now.tv_sec * 1000 + now.tv_nsec / 1000000;
+    unsigned long long tsInMilliseconds  = ts->tv_sec * 1000 + ts->tv_nsec / 1000000;
+    DWORD delta = (tsInMilliseconds > nowInMilliseconds) ?
+      (DWORD)(tsInMilliseconds - nowInMilliseconds) : 0;
     return _cnd_timedwait_win32(cond, mtx, delta);
   }
   else
