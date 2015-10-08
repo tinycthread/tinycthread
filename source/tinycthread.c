@@ -550,9 +550,6 @@ static void * _thrd_wrapper_function(void * aArg)
   thrd_start_t fun;
   void *arg;
   int  res;
-#if defined(_TTHREAD_POSIX_)
-  void *pres;
-#endif
 
   /* Get thread startup information */
   _thread_start_info *ti = (_thread_start_info *) aArg;
@@ -571,14 +568,9 @@ static void * _thrd_wrapper_function(void * aArg)
     _tinycthread_tss_cleanup();
   }
 
-  return res;
+  return (DWORD)res;
 #else
-  pres = malloc(sizeof(int));
-  if (pres != NULL)
-  {
-    *(int*)pres = res;
-  }
-  return pres;
+  return (void*)(intptr_t)res;
 #endif
 }
 
@@ -652,12 +644,7 @@ void thrd_exit(int res)
 
   ExitThread(res);
 #else
-  void *pres = malloc(sizeof(int));
-  if (pres != NULL)
-  {
-    *(int*)pres = res;
-  }
-  pthread_exit(pres);
+  pthread_exit((void*)(intptr_t)res);
 #endif
 }
 
@@ -684,19 +671,13 @@ int thrd_join(thrd_t thr, int *res)
   CloseHandle(thr);
 #elif defined(_TTHREAD_POSIX_)
   void *pres;
-  int ires = 0;
   if (pthread_join(thr, &pres) != 0)
   {
     return thrd_error;
   }
-  if (pres != NULL)
-  {
-    ires = *(int*)pres;
-    free(pres);
-  }
   if (res != NULL)
   {
-    *res = ires;
+    *res = (int)(intptr_t)pres;
   }
 #endif
   return thrd_success;
