@@ -682,7 +682,12 @@ int thrd_join(thrd_t thr, int *res)
 int thrd_sleep(const struct timespec *duration, struct timespec *remaining)
 {
 #if !defined(_TTHREAD_WIN32_)
-  return nanosleep(duration, remaining);
+  int res = nanosleep(duration, remaining);
+  if (!res || errno == EINTR) {
+      return res;     /* 0 on successful sleep, -1 if a signal occurred */
+  } else {
+      return -errno;  /* other negative value if an error occurred */
+  }
 #else
   struct timespec start;
   DWORD t;
@@ -695,21 +700,19 @@ int thrd_sleep(const struct timespec *duration, struct timespec *remaining)
               TRUE);
 
   if (t == 0) {
-    return 0;
-  } else if (remaining != NULL) {
-    timespec_get(remaining, TIME_UTC);
-    remaining->tv_sec -= start.tv_sec;
-    remaining->tv_nsec -= start.tv_nsec;
-    if (remaining->tv_nsec < 0)
-    {
-      remaining->tv_nsec += 1000000000;
-      remaining->tv_sec -= 1;
-    }
+    return 0;  /* 0 on successful sleep */
   } else {
-    return -1;
+    if (remaining != NULL) {
+      timespec_get(remaining, TIME_UTC);
+      remaining->tv_sec -= start.tv_sec;
+      remaining->tv_nsec -= start.tv_nsec;
+      if (remaining->tv_nsec < 0) {
+        remaining->tv_nsec += 1000000000;
+        remaining->tv_sec -= 1;
+      }
+    }
+    return -1;  /* -1 if a signal occurred */
   }
-
-  return 0;
 #endif
 }
 
