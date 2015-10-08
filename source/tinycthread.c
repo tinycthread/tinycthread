@@ -400,10 +400,14 @@ static int _cnd_timedwait_win32(cnd_t *cond, mtx_t *mtx, DWORD timeout)
   result = WaitForMultipleObjects(2, cond->mEvents, FALSE, timeout);
   if (result == WAIT_TIMEOUT)
   {
+    /* The mutex is locked again before the function returns, even if an error occurred */
+    mtx_lock(mtx);
     return thrd_timedout;
   }
   else if (result == (int)WAIT_FAILED)
   {
+    /* The mutex is locked again before the function returns, even if an error occurred */
+    mtx_lock(mtx);
     return thrd_error;
   }
 
@@ -419,6 +423,8 @@ static int _cnd_timedwait_win32(cnd_t *cond, mtx_t *mtx, DWORD timeout)
   {
     if (ResetEvent(cond->mEvents[_CONDITION_EVENT_ALL]) == 0)
     {
+      /* The mutex is locked again before the function returns, even if an error occurred */
+      mtx_lock(mtx);
       return thrd_error;
     }
   }
