@@ -40,7 +40,11 @@ LIBS =
 
 # Non-windows systems need pthread and rt
 ifndef WINDOWS
-LIBS += -lpthread -lrt
+ifeq ($(shell uname), Darwin)
+LIBS += -pthread
+else
+LIBS += -pthread -lrt
+endif
 endif
 
 # MinGW32 GCC 4.5 link problem fix
@@ -97,4 +101,3 @@ hello$(EXE): $(HELLO_OBJS) $(TINYCTHREAD_OBJS)
 hello.o: hello.c ../source/tinycthread.h
 test.o: test.c ../source/tinycthread.h
 tinycthread.o: ../source/tinycthread.c ../source/tinycthread.h
-

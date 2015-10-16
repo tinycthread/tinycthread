@@ -1,9 +1,24 @@
 language: c
-compiler:
-  - gcc
-  - clang
-  - tcc
+os:
+ - linux
+ - osx
+env:
+  matrix:
+    - COMPILER=gcc-5
+    - COMPILER=gcc-4.8
+    - COMPILER=gcc-4.6
+    - COMPILER=clang
+    - COMPILER=tcc
+    # - COMPILER=i686-w64-mingw32-gcc
+    # - COMPILER=x86_64-w64-mingw32-gcc
+matrix:
+  exclude:
+    - os: osx
+      env: COMPILER=i686-w64-mingw32-gcc
+    - os: osx
+      env: COMPILER=x86_64-w64-mingw32-gcc
+    - os: osx
+      env: COMPILER=tcc
 before_install:
- - sudo apt-get update -qq
- - sudo apt-get install -qq tcc
-script: cd test && ./check.sh
+ - ./.travis.sh deps
+script: ./.travis.sh build && ./.travis.sh test

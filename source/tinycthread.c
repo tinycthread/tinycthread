@@ -865,7 +865,7 @@ int _tthread_timespec_get(struct timespec *ts, int base)
   ts->tv_sec = (time_t)tb.time;
   ts->tv_nsec = 1000000L * (long)tb.millitm;
 #elif defined(CLOCK_REALTIME)
-  return (clock_gettime(CLOCK_REALTIME, ts) == 0) ? base : 0;
+  base = (clock_gettime(CLOCK_REALTIME, ts) == 0) ? base : 0;
 #else
   gettimeofday(&tv, NULL);
   ts->tv_sec = (time_t)tv.tv_sec;
