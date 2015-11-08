@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -x
 
 case "${1}" in
     "deps")
@@ -11,22 +11,22 @@ case "${1}" in
 
 		case "${COMPILER}" in
 		    "gcc-5")
-                        sudo apt-get install -qq gcc-5
+                        sudo apt-get install -y gcc-5
                         ;;
                     "gcc-4.6")
-                        sudo apt-get install -qq gcc-4.6
+                        sudo apt-get install -y gcc-4.6
                         ;;
                     "gcc-4.8")
-                        sudo apt-get install -qq gcc-4.8
+                        sudo apt-get install -y gcc-4.8
                         ;;
                     "tcc")
-                        sudo apt-get install -qq tcc
+                        sudo apt-get install -y tcc
                         ;;
 		    "i686-w64-mingw32-gcc")
-			sudo apt-get install -qq gcc-mingw-w64-i686 wine1.4
+			sudo apt-get install -y mingw-w64 wine1.6 wine1.6-i386 wine1.6-amd64
 			;;
 		    "x86_64-w64-mingw32-gcc")
-			sudo apt-get install -qq gcc-mingw-w64-x86-64 wine1.4
+			sudo apt-get install -y mingw-w64 wine1.6 wine1.6-i386 wine1.6-amd64
 			;;
 		esac
 		;;

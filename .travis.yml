@@ -1,16 +1,18 @@
 language: c
+sudo: required
+dist: trusty
 os:
  - linux
  - osx
 env:
   matrix:
-    - COMPILER=gcc-5
-    - COMPILER=gcc-4.8
-    - COMPILER=gcc-4.6
-    - COMPILER=clang
-    - COMPILER=tcc
-    # - COMPILER=i686-w64-mingw32-gcc
-    # - COMPILER=x86_64-w64-mingw32-gcc
+    # - COMPILER=gcc-5
+    # - COMPILER=gcc-4.8
+    # - COMPILER=gcc-4.6
+    # - COMPILER=clang
+    # - COMPILER=tcc
+    - COMPILER=i686-w64-mingw32-gcc
+    - COMPILER=x86_64-w64-mingw32-gcc
 matrix:
   exclude:
     - os: osx
