@@ -860,7 +860,7 @@ int _tthread_timespec_get(struct timespec *ts, int base)
   }
 
 #if defined(_TTHREAD_WIN32_)
-  _ftime64_s(&tb);
+  _ftime_s(&tb);
   ts->tv_sec = (time_t)tb.time;
   ts->tv_nsec = 1000000L * (long)tb.millitm;
 #elif defined(CLOCK_REALTIME)
