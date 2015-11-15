@@ -530,12 +530,21 @@ static void NTAPI _tinycthread_tss_callback(PVOID h, DWORD dwReason, PVOID pv)
 }
 
 #if defined(_MSC_VER)
-#pragma data_seg(".CRT$XLB")
-PIMAGE_TLS_CALLBACK p_thread_callback = _tinycthread_tss_callback;
-#pragma data_seg()
+  #ifdef _M_X64
+    #pragma const_seg(".CRT$XLB")
+  #else
+    #pragma data_seg(".CRT$XLB")
+  #endif
+  PIMAGE_TLS_CALLBACK p_thread_callback = _tinycthread_tss_callback;
+  #ifdef _M_X64
+    #pragma data_seg()
+  #else
+    #pragma const_seg()
+  #endif
 #else
-PIMAGE_TLS_CALLBACK p_thread_callback __attribute__((section(".CRT$XLB"))) = _tinycthread_tss_callback;
+  PIMAGE_TLS_CALLBACK p_thread_callback __attribute__((section(".CRT$XLB"))) = _tinycthread_tss_callback;
 #endif
+
 #endif /* defined(_TTHREAD_WIN32_) */
 
 /** Information to pass to the new thread (what to run). */
