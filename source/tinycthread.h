@@ -97,6 +97,10 @@ extern "C" {
     #undef WIN32_LEAN_AND_MEAN
     #undef __UNDEF_LEAN_AND_MEAN
   #endif
+  #ifdef __MINGW32__
+    /* MinGW has no _ftime_s symbol */
+    #define _ftime_s _ftime
+  #endif
 #endif
 
 /* Compiler-specific information */
