@@ -610,6 +610,8 @@ int thrd_create(thrd_t *thr, int stacksize, thrd_start_t func, void *arg)
     {
       stacksize = PTHREAD_STACK_MIN; 
     }
+    /* not all POSIX implementations create threads as joinable by default, so that
+       is made explicit here */
     if (pthread_attr_init(&attr) != 0 ||
         pthread_attr_setstacksize(&attr, stacksize) != 0 ||
         pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE) != 0 ||
