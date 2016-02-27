@@ -38,7 +38,7 @@ int main()
 {
   /* Start the child thread */
   thrd_t t;
-  if (thrd_create(&t, HelloThread, (void*)0) == thrd_success)
+  if (thrd_create(&t, 0, HelloThread, (void*)0) == thrd_success)
   {
     /* Wait for the thread to finish */
     thrd_join(t, NULL);
