@@ -32,6 +32,7 @@ freely, subject to the following restrictions:
   #include <unistd.h>
   #include <sys/time.h>
   #include <errno.h>
+  #include <limits.h>
 #elif defined(_TTHREAD_WIN32_)
   #include <process.h>
   #include <sys/timeb.h>
