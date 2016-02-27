@@ -641,7 +641,7 @@ int thrd_detach(thrd_t thr)
 int thrd_equal(thrd_t thr0, thrd_t thr1)
 {
 #if defined(_TTHREAD_WIN32_)
-  return thr0 == thr1;
+  return GetThreadId(thr0) == GetThreadId(thr1);
 #else
   return pthread_equal(thr0, thr1);
 #endif
