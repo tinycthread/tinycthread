@@ -587,7 +587,7 @@ static void * _thrd_wrapper_function(void * aArg)
 #endif
 }
 
-int thrd_create(thrd_t *thr, thrd_start_t func, void *arg)
+int thrd_create(thrd_t *thr, int stacksize, thrd_start_t func, void *arg)
 {
   /* Fill out the thread startup information (passed to the thread wrapper,
      which will eventually free it) */
@@ -601,11 +601,18 @@ int thrd_create(thrd_t *thr, thrd_start_t func, void *arg)
 
   /* Create the thread */
 #if defined(_TTHREAD_WIN32_)
-  *thr = CreateThread(NULL, 0, _thrd_wrapper_function, (LPVOID) ti, 0, NULL);
+  *thr = CreateThread(NULL, stacksize, _thrd_wrapper_function, (LPVOID) ti, 0, NULL);
 #elif defined(_TTHREAD_POSIX_)
-  if(pthread_create(thr, NULL, _thrd_wrapper_function, (void *)ti) != 0)
   {
-    *thr = 0;
+    pthread_attr_t attr;
+    if ((ret = pthread_attr_init(&attr)) ||
+        (ret = pthread_attr_setstacksize(&attr, stacksize)) ||
+        (ret = pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE)) ||
+        (ret = pthread_create(thr, &attr, _thrd_wrapper_function, (void *)ti)) ||
+        (ret = pthread_attr_destroy(&attr)))
+    {
+      *thr = 0;
+    }
   }
 #endif
 
@@ -641,7 +648,7 @@ int thrd_detach(thrd_t thr)
 int thrd_equal(thrd_t thr0, thrd_t thr1)
 {
 #if defined(_TTHREAD_WIN32_)
-  return thr0 == thr1;
+  return GetThreadId(thr0) == GetThreadId(thr1);
 #else
   return pthread_equal(thr0, thr1);
 #endif
