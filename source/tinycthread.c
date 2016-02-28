@@ -1,6 +1,6 @@
 /* -*- mode: c; tab-width: 2; indent-tabs-mode: nil; -*-
 Copyright (c) 2012 Marcus Geelnard
-Copyright (c) 2013-2014 Evan Nemerson
+Copyright (c) 2013-2016 Evan Nemerson
 
 This software is provided 'as-is', without any express or implied
 warranty. In no event will the authors be held liable for any damages
@@ -699,7 +699,14 @@ int thrd_join(thrd_t thr, int *res)
 int thrd_sleep(const struct timespec *duration, struct timespec *remaining)
 {
 #if !defined(_TTHREAD_WIN32_)
-  return nanosleep(duration, remaining);
+  int res = nanosleep(duration, remaining);
+  if (res == 0) {
+    return 0;
+  } else if (errno == EINTR) {
+    return -1;
+  } else {
+    return -2;
+  }
 #else
   struct timespec start;
   DWORD t;
@@ -713,20 +720,20 @@ int thrd_sleep(const struct timespec *duration, struct timespec *remaining)
 
   if (t == 0) {
     return 0;
-  } else if (remaining != NULL) {
-    timespec_get(remaining, TIME_UTC);
-    remaining->tv_sec -= start.tv_sec;
-    remaining->tv_nsec -= start.tv_nsec;
-    if (remaining->tv_nsec < 0)
-    {
-      remaining->tv_nsec += 1000000000;
-      remaining->tv_sec -= 1;
-    }
   } else {
-    return -1;
-  }
+    if (remaining != NULL) {
+      timespec_get(remaining, TIME_UTC);
+      remaining->tv_sec -= start.tv_sec;
+      remaining->tv_nsec -= start.tv_nsec;
+      if (remaining->tv_nsec < 0)
+      {
+        remaining->tv_nsec += 1000000000;
+        remaining->tv_sec -= 1;
+      }
+    }
 
-  return 0;
+    return (t == WAIT_IO_COMPLETION) ? -1 : -2;
+  }
 #endif
 }
 
