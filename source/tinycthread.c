@@ -384,7 +384,8 @@ int cnd_broadcast(cnd_t *cond)
 #if defined(_TTHREAD_WIN32_)
 static int _cnd_timedwait_win32(cnd_t *cond, mtx_t *mtx, DWORD timeout)
 {
-  int result, lastWaiter;
+  DWORD result;
+  int lastWaiter;
 
   /* Increment number of waiters */
   EnterCriticalSection(&cond->mWaitersCountLock);
@@ -404,7 +405,7 @@ static int _cnd_timedwait_win32(cnd_t *cond, mtx_t *mtx, DWORD timeout)
     mtx_lock(mtx);
     return thrd_timedout;
   }
-  else if (result == (int)WAIT_FAILED)
+  else if (result == WAIT_FAILED)
   {
     /* The mutex is locked again before the function returns, even if an error occurred */
     mtx_lock(mtx);
@@ -655,7 +656,7 @@ void thrd_exit(int res)
     _tinycthread_tss_cleanup();
   }
 
-  ExitThread(res);
+  ExitThread((DWORD)res);
 #else
   pthread_exit((void*)(intptr_t)res);
 #endif
@@ -674,7 +675,7 @@ int thrd_join(thrd_t thr, int *res)
   {
     if (GetExitCodeThread(thr, &dwRes) != 0)
     {
-      *res = dwRes;
+      *res = (int) dwRes;
     }
     else
     {
