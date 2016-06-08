@@ -1,30 +1,36 @@
-cmake_minimum_required(VERSION 3.1)
+cmake_minimum_required(VERSION 2.8.4)
+project(TinyCThread)
+enable_testing()
 
-project(TinyCThread C)
+find_package(Threads REQUIRED)
 
-set(LIBRARY_NAME tinycthread)
+add_library(tinycthread STATIC source/tinycthread.c)
+target_link_libraries(tinycthread Threads::Threads)
+set_property(TARGET tinycthread APPEND PROPERTY INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/source")
+set_property(TARGET tinycthread APPEND PROPERTY INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/source")
+set_property(TARGET tinycthread PROPERTY POSITION_INDEPENDENT_CODE True)
 
-## Define COMPILER_OPTIONS_FORMAT to match compiler we are using
-if (CMAKE_COMPILER_IS_GNUCC OR ${CMAKE_C_COMPILER_ID} STREQUAL Clang)
-	set(COMPILER_OPTIONS_FORMAT "GNU")
-elseif (${CMAKE_C_COMPILER_ID} STREQUAL MSVC)
-	set(COMPILER_OPTIONS_FORMAT "MSVC")
-endif ()
+option(TINYCTHREAD_DISABLE_TESTS "Disable TinyCThread unit tests")
+option(TINYCTHREAD_INSTALL "Install a static library for TinyCThread")
 
-## Enable extra warnings and make warnings errors
-if (${COMPILER_OPTIONS_FORMAT} STREQUAL GNU)
-	add_compile_options(-Wall -Wextra -Werror -pedantic)
-elseif (${COMPILER_OPTIONS_FORMAT} STREQUAL MSVC)
-	add_compile_options(/W4 /WX /EHsc)
-endif ()
+if(NOT TINYCTHREAD_DISABLE_TESTS)
+  add_executable(test-tinycthread "${CMAKE_CURRENT_SOURCE_DIR}/test/test.c")
+  target_link_libraries(test-tinycthread tinycthread)
 
-include_directories(source)
+  add_test(NAME tinycthread
+    COMMAND $<TARGET_FILE:test-tinycthread>)
+endif(NOT TINYCTHREAD_DISABLE_TESTS)
 
-set(SOURCE_FILES source/tinycthread.c source/tinycthread.h)
+if(TINYCTHREAD_INSTALL)
+  if(CMAKE_INSTALL_LIBDIR)
+    install(TARGETS tinycthread ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}")
+  else()
+    install(TARGETS tinycthread ARCHIVE DESTINATION lib)
+  endif()
 
-add_library(${LIBRARY_NAME} ${SOURCE_FILES})
-set_target_properties(${LIBRARY_NAME} PROPERTIES C_STANDARD 11)
-
-install(TARGETS	${LIBRARY_NAME}	ARCHIVE DESTINATION lib)
-install(FILES source/tinycthread.h DESTINATION include)
-
+  if(CMAKE_INSTALL_INCLUDEDIR)
+    install(FILES source/tinycthread.h DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
+  else()
+    install(FILES source/tinycthread.h DESTINATION include)
+  endif()
+endif(TINYCTHREAD_INSTALL)

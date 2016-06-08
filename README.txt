@@ -24,6 +24,12 @@ tinycthread.h to your project. In your own code, do:
 
 #include <tinycthread.h>
 
+TinyCThread also includes CMake support, so if your project uses CMake
+you can just `add_subdirectory(tinycthread)`. Then simply add the
+tinycthread target (using `target_link_libraries`) where necessary and
+CMake will take care of everything else, including adding the correct
+include directory and CTest integration.
+
 
 Building the test programs
 --------------------------
@@ -48,7 +54,8 @@ v1.2 - Unreleased
   - Improved Windows support, including TSS destructors
   - Added once support
   - Improved unit testing
-  - Assorted bug fixes.
+  - Added CMake support
+  - Assorted bug fixes
 
 v1.1 - 2012.9.8
   - First release.
@@ -65,7 +72,7 @@ License
 -------
 
 Copyright (c) 2012 Marcus Geelnard
-              2013-2014 Evan Nemerson
+              2013-2016 Evan Nemerson
 
 This software is provided 'as-is', without any express or implied
 warranty. In no event will the authors be held liable for any damages
@@ -85,4 +92,3 @@ freely, subject to the following restrictions:
 
     3. This notice may not be removed or altered from any source
     distribution.
-
