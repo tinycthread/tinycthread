@@ -1,6 +1,6 @@
 /* -*- mode: c; tab-width: 2; indent-tabs-mode: nil; -*-
 Copyright (c) 2012 Marcus Geelnard
-Copyright (c) 2013-2014 Evan Nemerson
+Copyright (c) 2013-2016 Evan Nemerson
 
 This software is provided 'as-is', without any express or implied
 warranty. In no event will the authors be held liable for any damages
@@ -76,6 +76,7 @@ extern "C" {
     #undef _XOPEN_SOURCE
     #define _XOPEN_SOURCE 500
   #endif
+  #define _XPG6
 #endif
 
 /* Generic includes */
