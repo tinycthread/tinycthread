@@ -5,7 +5,7 @@ enable_testing()
 find_package(Threads REQUIRED)
 
 add_library(tinycthread STATIC source/tinycthread.c)
-target_link_libraries(tinycthread Threads::Threads)
+target_link_libraries(tinycthread ${CMAKE_THREAD_LIBS_INIT})
 set_property(TARGET tinycthread APPEND PROPERTY INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/source")
 set_property(TARGET tinycthread APPEND PROPERTY INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/source")
 set_property(TARGET tinycthread PROPERTY POSITION_INDEPENDENT_CODE True)
