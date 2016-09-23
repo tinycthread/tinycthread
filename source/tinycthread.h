@@ -221,7 +221,14 @@ void mtx_destroy(mtx_t *mtx);
 */
 int mtx_lock(mtx_t *mtx);
 
-/** NOT YET IMPLEMENTED.
+/** Lock the lock the given mutex, or block until a specific point in time.
+* Blocks until either the given mutex can be locked, or the specified TIME_UTC
+* based time.
+* @param mtx A mutex object.
+* @param ts A UTC based calendar time
+* @return @ref The mtx_timedlock function returns thrd_success on success, or
+* thrd_timedout if the time specified was reached without acquiring the
+* requested resource, or thrd_error if the request could not be honored.
 */
 int mtx_timedlock(mtx_t *mtx, const struct timespec *ts);
 
