@@ -221,7 +221,7 @@ void mtx_destroy(mtx_t *mtx);
 */
 int mtx_lock(mtx_t *mtx);
 
-/** Lock the lock the given mutex, or block until a specific point in time.
+/** Lock the given mutex, or block until a specific point in time.
 * Blocks until either the given mutex can be locked, or the specified TIME_UTC
 * based time.
 * @param mtx A mutex object.
