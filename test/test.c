@@ -82,7 +82,7 @@ static void test_thread_arg_and_retval(void)
   for (i = 0; i < TEST_THREAD_ARGS_N_THREADS; i++)
   {
     ids[i] = rand();
-    thrd_create(&(threads[i]), thread_test_args, (void*) &(ids[i]));
+    thrd_create(&(threads[i]), 0, thread_test_args, (void*) &(ids[i]));
   }
 
   for (i = 0; i < TEST_THREAD_ARGS_N_THREADS; i++)
@@ -110,7 +110,7 @@ static void test_thread_local_storage(void)
   gLocalVar = 1;
 
   /* Start a child thread that modifies gLocalVar */
-  thrd_create(&t1, thread_test_local_storage, NULL);
+  thrd_create(&t1, 0, thread_test_local_storage, NULL);
   thrd_join(t1, NULL);
 
   /* Check if the TLS variable has changed */
@@ -161,7 +161,7 @@ static void test_mutex_locking(void)
 
   for (i = 0; i < TEST_MUTEX_LOCKING_N_THREADS; ++ i)
   {
-    thrd_create(&(t[i]), thread_lock, NULL);
+    thrd_create(&(t[i]), 0, thread_lock, NULL);
   }
 
   for (i = 0; i < TEST_MUTEX_LOCKING_N_THREADS; ++ i)
@@ -221,7 +221,7 @@ static void test_mutex_recursive(void)
 
   for ( i = 0 ; i < TEST_MUTEX_RECURSIVE_N_THREADS ; i++ )
   {
-    thrd_create (&(t[i]), test_mutex_recursive_cb, &data);
+    thrd_create (&(t[i]), 0, test_mutex_recursive_cb, &data);
   }
 
   for ( i = 0 ; i < TEST_MUTEX_RECURSIVE_N_THREADS ; i++ )
@@ -322,7 +322,7 @@ static void test_mutex_timed(void)
   data.upper = data.end;
   timespec_add_nsec(&(data.upper), NSECS_PER_SECOND / 10);
 
-  thrd_create(&thread, test_mutex_timed_thread_func, &data);
+  thrd_create(&thread, 0, test_mutex_timed_thread_func, &data);
 
   timespec_get(&start, TIME_UTC);
   assert (thrd_sleep(&interval, &interval) == 0);
@@ -343,7 +343,7 @@ static void test_thrd_exit(void)
 {
   thrd_t thread;
   int res;
-  thrd_create(&thread, test_thrd_exit_func, NULL);
+  thrd_create(&thread, 0, test_thrd_exit_func, NULL);
   assert(thrd_join(thread, &res));
   assert(res == 2);
 }
@@ -386,13 +386,13 @@ static void test_condition_variables (void)
 
   /* Start the waiting thread (it will wait for gCount to reach
      zero). */
-  thrd_create(&t1, thread_condition_waiter, NULL);
+  thrd_create(&t1, 0, thread_condition_waiter, NULL);
 
   /* Start a bunch of child threads (these will decrease gCount by 1
      when they finish) */
   for (i = 0; i < 40; ++ i)
   {
-    thrd_create(&t[i], thread_condition_notifier, NULL);
+    thrd_create(&t[i], 0, thread_condition_notifier, NULL);
   }
 
   /* Wait for the waiting thread to finish */
@@ -423,7 +423,7 @@ static void test_yield (void)
   /* Start a bunch of child threads */
   for (i = 0; i < 40; ++ i)
   {
-    thrd_create(&t[i], thread_yield, NULL);
+    thrd_create(&t[i], 0, thread_yield, NULL);
   }
 
   /* Yield... */
@@ -508,7 +508,7 @@ static void test_once (void)
   /* Create threads */
   for (i = 0; i < TEST_ONCE_N_THREADS; i++)
   {
-    thrd_create(&(threads[i]), thread_once, NULL);
+    thrd_create(&(threads[i]), 0, thread_once, NULL);
   }
 
   /* Wait for all threads to finish executing. */
@@ -575,7 +575,7 @@ static void test_tss (void)
 
   for (i = 0; i < TEST_TSS_N_THREADS; i++)
   {
-    thrd_create(&(threads[i]), test_tss_thread_func, NULL);
+    thrd_create(&(threads[i]), 0, test_tss_thread_func, NULL);
   }
 
   for (i = 0; i < TEST_TSS_N_THREADS; i++)

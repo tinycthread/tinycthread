@@ -32,6 +32,7 @@ freely, subject to the following restrictions:
   #include <unistd.h>
   #include <sys/time.h>
   #include <errno.h>
+  #include <limits.h>
 #elif defined(_TTHREAD_WIN32_)
   #include <process.h>
   #include <sys/timeb.h>
@@ -588,7 +589,7 @@ static void * _thrd_wrapper_function(void * aArg)
 #endif
 }
 
-int thrd_create(thrd_t *thr, thrd_start_t func, void *arg)
+int thrd_create(thrd_t *thr, int stacksize, thrd_start_t func, void *arg)
 {
   /* Fill out the thread startup information (passed to the thread wrapper,
      which will eventually free it) */
@@ -602,11 +603,24 @@ int thrd_create(thrd_t *thr, thrd_start_t func, void *arg)
 
   /* Create the thread */
 #if defined(_TTHREAD_WIN32_)
-  *thr = CreateThread(NULL, 0, _thrd_wrapper_function, (LPVOID) ti, 0, NULL);
+  *thr = CreateThread(NULL, stacksize, _thrd_wrapper_function, (LPVOID) ti, 0, NULL);
 #elif defined(_TTHREAD_POSIX_)
-  if(pthread_create(thr, NULL, _thrd_wrapper_function, (void *)ti) != 0)
   {
-    *thr = 0;
+    pthread_attr_t attr;
+    if (stacksize < PTHREAD_STACK_MIN)
+    {
+      stacksize = PTHREAD_STACK_MIN; 
+    }
+    /* not all POSIX implementations create threads as joinable by default, so that
+       is made explicit here */
+    if (pthread_attr_init(&attr) != 0 ||
+        pthread_attr_setstacksize(&attr, stacksize) != 0 ||
+        pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE) != 0 ||
+        pthread_create(thr, &attr, _thrd_wrapper_function, (void *)ti) != 0 ||
+        pthread_attr_destroy(&attr) != 0)
+    {
+      *thr = 0;
+    }
   }
 #endif
 
