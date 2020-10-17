@@ -307,6 +307,7 @@ static void test_mutex_timed(void)
   struct timespec interval = { 0, };
   struct timespec start;
   struct timespec end;
+  int sleep_result;
 
   interval.tv_sec = 0;
   interval.tv_nsec = (NSECS_PER_SECOND / 10) * 2;
@@ -325,7 +326,8 @@ static void test_mutex_timed(void)
   thrd_create(&thread, test_mutex_timed_thread_func, &data);
 
   timespec_get(&start, TIME_UTC);
-  assert (thrd_sleep(&interval, &interval) == 0);
+  sleep_result = thrd_sleep(&interval, &interval);
+  assert (sleep_result == 0);
   timespec_get(&end, TIME_UTC);
   mtx_unlock(&(data.mutex));
 
