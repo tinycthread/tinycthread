@@ -22,6 +22,7 @@
 #     3. This notice may not be removed or altered from any source
 #     distribution.
 #-----------------------------------------------------------------------------------------
+# SPDX-License-Identifier: Zlib
 
 # A simple hack to check if we are on Windows or not (i.e. are we using mingw32-make?)
 ifeq ($(findstring mingw32, $(MAKE)), mingw32)
