@@ -168,16 +168,20 @@ int _tthread_timespec_get(struct timespec *ts, int base);
 #endif
 
 /* Function return values */
-#define thrd_error    0 /**< The requested operation failed */
-#define thrd_success  1 /**< The requested operation succeeded */
-#define thrd_timedout 2 /**< The time specified in the call was reached without acquiring the requested resource */
-#define thrd_busy     3 /**< The requested operation failed because a tesource requested by a test and return function is already in use */
-#define thrd_nomem    4 /**< The requested operation failed because it was unable to allocate memory */
+enum { 
+  thrd_error    = 0, /**< The requested operation failed */
+  thrd_success  = 1, /**< The requested operation succeeded */
+  thrd_timedout = 2, /**< The time specified in the call was reached without acquiring the requested resource */
+  thrd_busy     = 3, /**< The requested operation failed because a tesource requested by a test and return function is already in use */
+  thrd_nomem    = 4, /**< The requested operation failed because it was unable to allocate memory */
+};
 
 /* Mutex types */
-#define mtx_plain     0
-#define mtx_timed     1
-#define mtx_recursive 2
+enum {
+  mtx_plain     = 0,
+  mtx_timed     = 1,
+  mtx_recursive = 2,
+};
 
 /* Mutex */
 #if defined(_TTHREAD_WIN32_)
