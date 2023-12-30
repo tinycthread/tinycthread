@@ -143,7 +143,10 @@ int mtx_timedlock(mtx_t *mtx, const struct timespec *ts)
     return thrd_error;
   }
 
-  timespec_get(&current_ts, TIME_UTC);
+  if (timespec_get(&current_ts, TIME_UTC) == 0)
+  {
+      return thrd_error;
+  }
 
   if ((current_ts.tv_sec > ts->tv_sec) || ((current_ts.tv_sec == ts->tv_sec) && (current_ts.tv_nsec >= ts->tv_nsec)))
   {
@@ -191,7 +194,10 @@ int mtx_timedlock(mtx_t *mtx, const struct timespec *ts)
 
   /* Try to acquire the lock and, if we fail, sleep for 5ms. */
   while ((rc = pthread_mutex_trylock (mtx)) == EBUSY) {
-    timespec_get(&cur, TIME_UTC);
+    if (timespec_get(&cur, TIME_UTC) == 0)
+    {
+        return thrd_error;
+    }
 
     if ((cur.tv_sec > ts->tv_sec) || ((cur.tv_sec == ts->tv_sec) && (cur.tv_nsec >= ts->tv_nsec)))
     {
@@ -595,10 +601,28 @@ struct TinyCThreadThrdData {
     struct TinyCThreadThrdData* next;
 };
 
+static SRWLOCK _tinycthread_thread_head_srwlock;
 static struct TinyCThreadThrdData* _tinycthread_thread_head = NULL;
+
+static BOOL CALLBACK _tinycthread_thread_head_once_fn(PINIT_ONCE once, PVOID param, PVOID* context)
+{
+  (void)param;
+  (void)context;
+  InitializeSRWLock(&_tinycthread_thread_head_srwlock);
+  return TRUE;
+}
+
+/* InitOnceExecuteOnce is only supported on  */
+static void _once_init_thread_head(void)
+{
+  static INIT_ONCE initOnce = INIT_ONCE_STATIC_INIT;
+  InitOnceExecuteOnce(&initOnce, _tinycthread_thread_head_once_fn, NULL, NULL);
+}
 
 static void _insert_thread_data(struct TinyCThreadThrdData* data)
 {
+  _once_init_thread_head();
+  AcquireSRWLockExclusive(&_tinycthread_thread_head_srwlock);
   if (_tinycthread_thread_head == NULL)
   {
     _tinycthread_thread_head = data;
@@ -612,24 +636,31 @@ static void _insert_thread_data(struct TinyCThreadThrdData* data)
     }
     node->next = data;
   }
+  ReleaseSRWLockExclusive(&_tinycthread_thread_head_srwlock);
 }
 
 static struct TinyCThreadThrdData* _lookup_thread_handle(DWORD thread_id)
 {
+  _once_init_thread_head();
+  AcquireSRWLockShared(&_tinycthread_thread_head_srwlock);
   struct TinyCThreadThrdData* node = _tinycthread_thread_head;
   while (node != NULL)
   {
     if (node->thread_id == thread_id)
     {
+      ReleaseSRWLockShared(&_tinycthread_thread_head_srwlock);
       return node->handle;
     }
     node = node->next;
   } 
+  ReleaseSRWLockShared(&_tinycthread_thread_head_srwlock);
   return NULL;
 }
 
 static void _remove_thread_data(DWORD thread_id)
 {
+  _once_init_thread_head();
+  AcquireSRWLockExclusive(&_tinycthread_thread_head_srwlock);
   struct TinyCThreadThrdData* node = _tinycthread_thread_head;
   if (node != NULL)
   {
@@ -637,6 +668,7 @@ static void _remove_thread_data(DWORD thread_id)
     {
       _tinycthread_thread_head = node->next;
       free(node);
+      ReleaseSRWLockExclusive(&_tinycthread_thread_head_srwlock);
       return;
     }
     while (node->next != NULL)
@@ -646,11 +678,13 @@ static void _remove_thread_data(DWORD thread_id)
         struct TinyCThreadThrdData* needle = node->next;
         node->next = needle->next;
         free(needle);
+        ReleaseSRWLockExclusive(&_tinycthread_thread_head_srwlock);
         return;
       }
       node = node->next;
     }
   }
+  ReleaseSRWLockExclusive(&_tinycthread_thread_head_srwlock);
 }
 #endif
 
@@ -809,7 +843,10 @@ int thrd_sleep(const struct timespec *duration, struct timespec *remaining)
   struct timespec start;
   DWORD t;
 
-  timespec_get(&start, TIME_UTC);
+  if (timespec_get(&start, TIME_UTC) == 0)
+  {
+      return thrd_error;
+  }
 
   t = SleepEx((DWORD)(duration->tv_sec * 1000 +
               duration->tv_nsec / 1000000 +
@@ -819,8 +856,12 @@ int thrd_sleep(const struct timespec *duration, struct timespec *remaining)
   if (t == 0) {
     return 0;
   } else {
-    if (remaining != NULL) {
-      timespec_get(remaining, TIME_UTC);
+    if (remaining != NULL)
+    {
+      if (timespec_get(remaining, TIME_UTC) == 0)
+      {
+          return thrd_error;
+      }
       remaining->tv_sec -= start.tv_sec;
       remaining->tv_nsec -= start.tv_nsec;
       if (remaining->tv_nsec < 0)
