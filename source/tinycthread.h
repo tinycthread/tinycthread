@@ -320,7 +320,7 @@ int cnd_timedwait(cnd_t *cond, mtx_t *mtx, const struct timespec *ts);
 
 /* Thread */
 #if defined(_TTHREAD_WIN32_)
-typedef HANDLE thrd_t;
+typedef DWORD thrd_t;
 #else
 typedef pthread_t thrd_t;
 #endif
