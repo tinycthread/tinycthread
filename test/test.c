@@ -260,12 +260,13 @@ static void timespec_add_nsec (struct timespec* ts, long tv_nsec)
   }
 }
 
+/* Synchronize the release instead of imposing scheduler-latency limits. */
 struct TestMutexTimedData {
   mtx_t mutex;
-  struct timespec start;
+  mtx_t state_mutex;
+  cnd_t state_changed;
   struct timespec timeout;
-  struct timespec end;
-  struct timespec upper;
+  int timed_out;
 };
 
 static int test_mutex_timed_thread_func(void* arg)
@@ -276,27 +277,22 @@ static int test_mutex_timed_thread_func(void* arg)
 
   ret = mtx_timedlock(&(data->mutex), &(data->timeout));
   assert (ret == thrd_timedout);
-
   timespec_get(&ts, TIME_UTC);
-  ret = timespec_compare(&ts, &(data->start));
-  assert (ret >= 0);
   ret = timespec_compare(&ts, &(data->timeout));
   assert (ret >= 0);
-  ret = timespec_compare(&ts, &(data->end));
-  assert (ret < 0);
+
+  ret = mtx_lock(&(data->state_mutex));
+  assert (ret == thrd_success);
+  data->timed_out = 1;
+  ret = cnd_signal(&(data->state_changed));
+  assert (ret == thrd_success);
+  ret = mtx_unlock(&(data->state_mutex));
+  assert (ret == thrd_success);
 
   ret = mtx_lock(&(data->mutex));
   assert (ret == thrd_success);
-
-  timespec_get(&ts, TIME_UTC);
-  ret = timespec_compare(&ts, &(data->end));
-  assert (ret >= 0);
-
-  ret = timespec_compare(&ts, &(data->upper));
-  assert (ret < 0);
-
-  mtx_unlock(&(data->mutex));
-
+  ret = mtx_unlock(&(data->mutex));
+  assert (ret == thrd_success);
   return 0;
 }
 
@@ -304,32 +300,40 @@ static void test_mutex_timed(void)
 {
   struct TestMutexTimedData data;
   thrd_t thread;
-  struct timespec interval = { 0, };
-  struct timespec start;
-  struct timespec end;
+  int ret;
 
-  interval.tv_sec = 0;
-  interval.tv_nsec = (NSECS_PER_SECOND / 10) * 2;
+  data.timed_out = 0;
+  ret = mtx_init(&(data.mutex), mtx_timed);
+  assert (ret == thrd_success);
+  ret = mtx_init(&(data.state_mutex), mtx_plain);
+  assert (ret == thrd_success);
+  ret = cnd_init(&(data.state_changed));
+  assert (ret == thrd_success);
+  ret = mtx_lock(&(data.mutex));
+  assert (ret == thrd_success);
 
-  mtx_init(&(data.mutex), mtx_timed);
-  mtx_lock(&(data.mutex));
-
-  timespec_get(&(data.start), TIME_UTC);
-  data.timeout = data.start;
+  timespec_get(&(data.timeout), TIME_UTC);
   timespec_add_nsec(&(data.timeout), NSECS_PER_SECOND / 10);
-  data.end = data.timeout;
-  timespec_add_nsec(&(data.end), NSECS_PER_SECOND / 10);
-  data.upper = data.end;
-  timespec_add_nsec(&(data.upper), NSECS_PER_SECOND / 10);
+  ret = thrd_create(&thread, test_mutex_timed_thread_func, &data);
+  assert (ret == thrd_success);
 
-  thrd_create(&thread, test_mutex_timed_thread_func, &data);
+  ret = mtx_lock(&(data.state_mutex));
+  assert (ret == thrd_success);
+  while (!data.timed_out)
+  {
+    ret = cnd_wait(&(data.state_changed), &(data.state_mutex));
+    assert (ret == thrd_success);
+  }
+  ret = mtx_unlock(&(data.state_mutex));
+  assert (ret == thrd_success);
+  ret = mtx_unlock(&(data.mutex));
+  assert (ret == thrd_success);
+  ret = thrd_join(thread, NULL);
+  assert (ret == thrd_success);
 
-  timespec_get(&start, TIME_UTC);
-  assert (thrd_sleep(&interval, &interval) == 0);
-  timespec_get(&end, TIME_UTC);
-  mtx_unlock(&(data.mutex));
-
-  thrd_join(thread, NULL);
+  cnd_destroy(&(data.state_changed));
+  mtx_destroy(&(data.state_mutex));
+  mtx_destroy(&(data.mutex));
 }
 
 static int test_thrd_exit_func(void* arg)
@@ -346,6 +350,54 @@ static void test_thrd_exit(void)
   thrd_create(&thread, test_thrd_exit_func, NULL);
   assert(thrd_join(thread, &res));
   assert(res == 2);
+}
+
+/* A timed wait must return with the caller's mutex locked again.  Probe
+ * ownership from a different thread, rather than relying on recursive-lock
+ * behavior of a platform's underlying mutex implementation. */
+static int thread_condition_timeout_probe(void *aArg)
+{
+  mtx_t *mutex = (mtx_t *)aArg;
+  int result = mtx_trylock(mutex);
+  if (result == thrd_success)
+  {
+    mtx_unlock(mutex);
+  }
+  return result;
+}
+
+static void test_condition_timeout(void)
+{
+  mtx_t mutex;
+  cnd_t condition;
+  struct timespec deadline;
+  thrd_t probe;
+  int result;
+  int probe_result;
+
+  result = mtx_init(&mutex, mtx_plain);
+  assert(result == thrd_success);
+  result = cnd_init(&condition);
+  assert(result == thrd_success);
+  result = mtx_lock(&mutex);
+  assert(result == thrd_success);
+
+  /* An expired absolute deadline avoids timing assumptions or sleeps. */
+  deadline.tv_sec = 0;
+  deadline.tv_nsec = 0;
+  result = cnd_timedwait(&condition, &mutex, &deadline);
+  assert(result == thrd_timedout);
+
+  result = thrd_create(&probe, thread_condition_timeout_probe, &mutex);
+  assert(result == thrd_success);
+  result = thrd_join(probe, &probe_result);
+  assert(result == thrd_success);
+  assert(probe_result == thrd_busy);
+
+  result = mtx_unlock(&mutex);
+  assert(result == thrd_success);
+  cnd_destroy(&condition);
+  mtx_destroy(&mutex);
 }
 
 /* Thread function: Condition notifier */
@@ -603,6 +655,7 @@ const Test unit_tests[] =
   { "mutex-locking", test_mutex_locking },
   { "mutex-recursive", test_mutex_recursive },
   { "condition-variables", test_condition_variables },
+  { "condition-timeout", test_condition_timeout },
   { "yield", test_yield },
   { "sleep", test_sleep },
   { "time", test_time },
